@@ -1,3 +1,4 @@
-.env
+env/
 appengine-generated/
 
+__pycache__/
