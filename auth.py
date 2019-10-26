@@ -3,8 +3,8 @@ All authenticatio convenience functions.
 """
 from google.cloud import datastore
 
-# TODO: This should depend on environment we're in?
-def graph_creds():
+# Gets the host, username, and password from Datastore.
+def neo4j_creds():
     # Get auth variables from cloud datastore.
     datastore_client = datastore.Client()
     query = datastore_client.query(kind='GaeEnvSettings')
