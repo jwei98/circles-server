@@ -1,5 +1,5 @@
 """
-All authenticatio convenience functions.
+All authentication convenience functions.
 """
 from google.cloud import datastore
 

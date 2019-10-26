@@ -1,3 +1,6 @@
+"""
+Main driver for Flask server.
+"""
 import os
 
 from flask import Flask
