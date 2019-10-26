@@ -2,3 +2,8 @@ env/
 appengine-generated/
 
 __pycache__/
+
+start_dev.sh
+secrets/
+*.pyc
+.*
