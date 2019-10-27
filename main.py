@@ -22,17 +22,16 @@ def hello():
 # User API
 
 
-@app.route('circles/api/v1.0/users/<int:user_id>', methods=['GET'])
-def get_person(user_id):
-    return """""{"person": {
-        "username": "cooldude",
+@app.route('/circles/api/v1.0/users/<id>', methods=['GET'])
+def get_person(id):
+    return """{"person": {
+        "id": "123",
 		"display_name": "Cool Dude", 
-		"uid": "stuff",
 		"email": "cooldude@duke.edu:,
 		"photo": "base64",
 		"Knows": [],
 		"Circles": [],
-		"InvitedTo": [],
+		"InvitedTo": []
     }
 }"""
 
