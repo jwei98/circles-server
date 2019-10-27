@@ -38,7 +38,7 @@ def get_person(id):
 }""" % id
 
 
-@app.route('circles/api/v1.0/circles/<int:id>', methods=['GET'])
+@app.route('/circles/api/v1.0/circles/<int:id>', methods=['GET'])
 def get_circle(id):
     return """
 {
@@ -52,7 +52,7 @@ def get_circle(id):
 } """ % id
 
 
-@app.route('circles/api/v1.0/events/<int:id>', methods=['GET'])
+@app.route('/circles/api/v1.0/events/<int:id>', methods=['GET'])
 def get_event(id):
     return """
 {
