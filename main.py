@@ -29,7 +29,7 @@ def get_person(user_id):
 
 @app.route('circles/api/v1.0/users/<int:user_id>', methods=['POST'])
 def add_person(user_id):
-    if not request.json or not 'uid' in request.json:
+    if not request.json:
         abort(400)
     # Use Circle model to add to graph
 
@@ -38,7 +38,7 @@ def add_person(user_id):
 
 @app.route('circles/api/v1.0/users/<int:user_id>', methods=['PUT'])
 def update_person(user_id):
-    if not request.json or not 'uid' in request.json:
+    if not request.json:
         abort(400)
     # Use Circle model to add to graph
 
@@ -54,7 +54,7 @@ def get_circle(circle_id):
 
 @app.route('circles/api/v1.0/circles/<int:circle_id>', methods=['POST'])
 def create_circle(circle_id):
-    if not request.json or not 'cid' in request.json:
+    if not request.json:
         abort(400)
     # Use Circle model to add to graph
 
@@ -63,7 +63,7 @@ def create_circle(circle_id):
 
 @app.route('circles/api/v1.0/circles/<int:circle_id>', methods=['PUT'])
 def update_circle(circle_id):
-    if not request.json or not 'cid' in request.json:
+    if not request.json:
         abort(400)
     # Use Circle model to update in graph
 
@@ -78,7 +78,7 @@ def get_circle(event_id):
 
 @app.route('circles/api/v1.0/events/<int:event_id>', methods=['POST'])
 def create_event(event_id):
-    if not request.json or not 'eid' in request.json:
+    if not request.json:
         abort(400)
     # Use Event model to create and link to graph
 
@@ -87,7 +87,7 @@ def create_event(event_id):
 
 @app.route('circles/api/v1.0/events/<int:event_id>', methods=['PUT'])
 def update_event(event_id):
-    if not request.json or not 'eid' in request.json:
+    if not request.json:
         abort(400)
     # Use Event model to update in graph
 
