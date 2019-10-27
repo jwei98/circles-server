@@ -6,7 +6,7 @@ from py2neo.ogm import (GraphObject, Property, Related, RelatedTo, RelatedFrom)
 
 
 class Person(GraphObject):
-    __primarykey__ = "uid"
+    __primarykey__ = "username"
 
     # Properties.
     username = Property()
@@ -27,12 +27,10 @@ class Person(GraphObject):
         self.photo = photo
 
 class Circle(GraphObject):
-    __primarykey__ = "cid"
 
     # Properties.
 
     name = Property()
-    cid = Property()
 
     # Relationships.
     Contains = Related("Person", "CONTAINS")
@@ -40,16 +38,13 @@ class Circle(GraphObject):
 
     def __init__(self, name, members, events):
         self.name = name
-        self.cid = 000  # How to determine this?
         # Initialize ID and Neo relationships
 
 class Event(GraphObject):
-    __primarykey__ = "eid"
 
     # Properties.
 
     name = Property()
-    eid = Property()
     description = Property()
     datetime = Property()
 
@@ -59,7 +54,6 @@ class Event(GraphObject):
 
     def __init__(self, name, description, time, circle):
         self.name = name
-        self.eid = 000  # How to determine this?
         self.description = description
         self.datetime = time
         # is there a way to initialize the neo relationships
