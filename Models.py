@@ -10,7 +10,6 @@ class Person(GraphObject):
 
     username = Property()
     display_name = Property()
-    uid = Property()
     email = Property()
     photo = Property()
 
