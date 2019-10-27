@@ -30,7 +30,7 @@ def get_person(id):
 		"email": "cooldude@duke.edu:,
 		"photo": "base64",
 		"Knows": [],
-		"Circles": [],
+		"IsMember": [],
 		"InvitedTo": []
     }
 }"""
