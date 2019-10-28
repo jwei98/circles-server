@@ -58,7 +58,7 @@ def get_event(id):
 {
     “Event”: {
     “id”: %d,
-    “display_name”: "Event Display Name">,
+    “display_name”: "Event Display Name",
     “description”: "Cool Event Description",
     “location”: "Location String",
     “datetime”: "Datetime Object",
