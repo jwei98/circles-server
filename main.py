@@ -20,8 +20,6 @@ graph = Graph(host=host, username=username, password=password, secure=True)
 def hello():
     return 'Hello, Circles!!'
 
-# User API
-
 
 @app.route('/circles/api/v1.0/users/<int:person_id>', methods=['GET'])
 def get_person(person_id):
