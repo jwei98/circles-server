@@ -67,6 +67,7 @@ class Event(GraphObject):
         self.datetime = datetime
         # Events should always be linked to a circle.
         self.BelongsTo.add(circle)
+        circle.Scheduled.add(self)
         # Each member in the circle should be invited to the event.
         for member in circle.HasMember:
             member.InvitedTo.add(self, properties={'attending': False})

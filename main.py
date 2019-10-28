@@ -4,7 +4,7 @@ Main driver for Flask server.
 import os
 
 from flask import Flask
-from py2neo import Graph
+from py2neo import Graph, NodeMatcher
 
 import auth
 from Models import Person, Circle, Event
