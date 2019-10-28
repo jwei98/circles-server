@@ -4,7 +4,7 @@ Main driver for Flask server.
 import os
 import json
 
-from flask import Flask, request, abort
+from flask import Flask
 from py2neo import Graph
 
 import auth
