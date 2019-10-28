@@ -4,9 +4,10 @@ Main driver for Flask server.
 import os
 
 from flask import Flask
-from py2neo import Graph
+from py2neo import Graph, NodeMatcher
 
 import auth
+from Models import Person, Circle, Event
 
 app = Flask(__name__)
 
@@ -18,6 +19,7 @@ graph = Graph(host=host, username=username, password=password, secure=True)
 @app.route('/')
 def hello():
     return 'Hello, Circles!!'
+
 
 
 if __name__ == '__main__':
