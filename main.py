@@ -7,6 +7,7 @@ from flask import Flask
 from py2neo import Graph
 
 import auth
+from Models import Person, Circle, Event
 
 app = Flask(__name__)
 
