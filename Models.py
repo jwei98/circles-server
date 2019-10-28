@@ -29,6 +29,7 @@ class Circle(GraphObject):
 
     def __init__(self, display_name, description):
         self.display_name = display_name
+        self.description = description
 
 
 class Event(GraphObject):
@@ -38,6 +39,8 @@ class Event(GraphObject):
     datetime = Property()
 
     BelongsTo = Related("Circle", "BELONGS_TO")
+    Invited = Related("Person", "INVITED")
+    # TODO: How do we add a property to an edge? i.e. the boolean for RSVP
 
     def __init__(self, display_name, description, location, datetime, circle):
         self.display_name = display_name
@@ -46,4 +49,7 @@ class Event(GraphObject):
         self.datetime = datetime
         # Events should always be linked to a circle.
         self.BelongsTo.add(circle)
+        # Each member in the circle an event is attached to should be invited.
+        for guest in circle.HasMember:
+            self.Invited.add(guest)
 
