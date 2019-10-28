@@ -3,10 +3,16 @@ Main driver for Flask server.
 """
 import os
 
+<<<<<<< HEAD
 from flask import Flask, request, abort
 from py2neo import Graph
+=======
+from flask import Flask
+from py2neo import Graph, NodeMatcher
+>>>>>>> 9409f48c97428bddd61378199878846133046d8a
 
 import auth
+from Models import Person, Circle, Event
 
 app = Flask(__name__)
 
@@ -71,6 +77,7 @@ def get_event(id):
     }
 }
 """
+
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8080, debug=True)
