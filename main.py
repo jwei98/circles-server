@@ -4,7 +4,7 @@ Main driver for Flask server.
 import os
 import json
 
-from flask import Flask
+from flask import (Flask, abort, jsonify, render_template)
 from py2neo import Graph
 
 import auth
@@ -17,60 +17,64 @@ host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username, password=password, secure=True)
 
 
+def get_all_nodes(graph_cls):
+    """Gets all nodes of a certain GraphObject type from graph, e.g. Person"""
+    nodes = []
+    for obj in list(graph_cls.match(graph)):
+        nodes.append(obj.json_repr())
+    return nodes
+
+
 @app.route('/')
 def hello():
     return 'Hello, Circles!!'
 
 
+@app.route('/circles/api/v1.0/users/', defaults={'person_id': None})
 @app.route('/circles/api/v1.0/users/<int:person_id>', methods=['GET'])
 def get_person(person_id):
-    person_info = {
-        'Person': {
-            'id': person_id,
-            'display_name': 'Cool Dude', 
-            'email': 'cooldude@duke.edu',
-            'photo': 'base64',
-            'Knows': [],
-            'IsMember': [],
-            'InvitedTo': []
-        }
-    }
-    return json.dumps(person_info)
+    # Request all users.
+    if not person_id:
+        return jsonify(Person=get_all_nodes(Person))
+
+    # Request specific user.
+    person = Person.match(graph, person_id).first()
+    if not person:
+        abort(404, description="Resource not found")
+    return jsonify(Person=person.json_repr())
 
 
+@app.route('/circles/api/v1.0/circles/', defaults={'circle_id': None})
 @app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET'])
 def get_circle(circle_id):
-    circle_info = {
-        'Circle': {
-            'id': circle_id,
-            'display_name': 'Circle Display Name',
-            'description': 'Awesome Description',
-            'HasMember': [1, 2, 3],
-            'Scheduled': [4, 5, 6]
-        }
-    }
-    return json.dumps(circle_info)
+    # Request all circles.
+    if not circle_id:
+        return jsonify(Circle=get_all_nodes(Circle))
+
+    # Request specific circle.
+    circle = Circle.match(graph, circle_id).first()
+    if not circle:
+        abort(404, description="Resource not found")
+    return jsonify(Circle=circle.json_repr())
 
 
+@app.route('/circles/api/v1.0/events/', defaults={'event_id': None})
 @app.route('/circles/api/v1.0/events/<int:event_id>', methods=['GET'])
 def get_event(event_id):
-    event_info = {
-        'Event': {
-            'id': event_id,
-            'display_name': 'Event Display Name',
-            'description': 'Cool Event Description',
-            'location': 'Location String',
-            'datetime': 'Datetime Object',
-            'BelongsTo': 000,
-            'Invited': {
-                1: True,
-                2: True,
-                3: False,
-            }
-        }
-    }
-    return json.dumps(event_info)
+    # Request all events.
+    if not event_id:
+        return jsonify(Event=get_all_nodes(Event))
 
+    # Request specific event.
+    event = Event.match(graph, event_id).first()
+    if not event:
+        abort(404, description="Resource not found")
+    return jsonify(Event=event.json_repr())
+
+
+@app.errorhandler(404)
+def resource_not_found(e):
+    return jsonify(error=str(e)), 404
 
 
 if __name__ == '__main__':

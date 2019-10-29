@@ -20,10 +20,10 @@ Define all data models.
 # graph.push(e)
 
 """
-
 from py2neo.ogm import (GraphObject, Property, Related, RelatedTo, RelatedFrom)
 
 
+# TODO: Consider __primarykey__ as email rather than implicit __id__
 class Person(GraphObject):
     display_name = Property()
     email = Property()
@@ -38,6 +38,17 @@ class Person(GraphObject):
         self.email = email
         self.photo = photo
 
+    def json_repr(self):
+        return {
+            'id': self.__primaryvalue__,
+            'display_name': self.display_name,
+            'email': self.email,
+            'photo': self.photo,
+            'Knows': [p.__primaryvalue__ for p in list(self.Knows)],
+            'IsMember': [p.__primaryvalue__ for p in list(self.IsMember)],
+            'InvitedTo': [p.__primaryvalue__ for p in list(self.InvitedTo)]
+        }
+
 
 class Circle(GraphObject):
     display_name = Property()
@@ -49,6 +60,15 @@ class Circle(GraphObject):
     def __init__(self, display_name, description):
         self.display_name = display_name
         self.description = description
+
+    def json_repr(self):
+        return {
+            'id': self.__primaryvalue__,
+            'display_name': self.display_name,
+            'description': self.description,
+            'HasMember': [p.__primaryvalue__ for p in list(self.HasMember)],
+            'Scheduled': [p.__primaryvalue__ for p in list(self.Scheduled)]
+        }
 
 
 class Event(GraphObject):
@@ -72,3 +92,13 @@ class Event(GraphObject):
         for member in circle.HasMember:
             member.InvitedTo.add(self, properties={'attending': False})
 
+    def json_repr(self):
+        return {
+            'id': self.__primaryvalue__,
+            'display_name': self.display_name,
+            'description': self.description,
+            'location': self.location,
+            'datetime': self.datetime,
+            'BelongsTo': [p.__primaryvalue__ for p in list(self.BelongsTo)],
+            'Invited': [p.__primaryvalue__ for p in list(self.Invited)]
+        }
