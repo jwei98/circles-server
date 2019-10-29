@@ -42,7 +42,7 @@ def get_person(person_id, resource):
         abort(404, description="Resource not found")
     if not resource:
         # Request specific user.
-        return jsonify(Person=person.json_repr())
+        return jsonify(person.json_repr())
 
     # Request specific resource associated with the person
     output = []
@@ -74,7 +74,7 @@ def get_circle(circle_id, resource):
         abort(404, description="Resource not found")
     if not resource:
         # Request specific circle
-        return jsonify(Circle=circle.json_repr())
+        return jsonify(circle.json_repr())
 
     # Request specific resource associated with the circle
     output = []
@@ -103,7 +103,7 @@ def get_event(event_id, resource):
         abort(404, description="Resource not found")
     if not resource:
         # Request specific event.
-        return jsonify(Event=event.json_repr())
+        return jsonify(event.json_repr())
 
         # Request specific resource associated with the circle
     output = []
