@@ -4,6 +4,7 @@ appengine-generated/
 __pycache__/
 
 start_dev.sh
+start_prod.sh
 secrets/
 *.pyc
 .*
