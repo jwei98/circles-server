@@ -27,7 +27,7 @@ def get_all_nodes(graph_cls):
 
 @app.route('/')
 def hello():
-    return 'Hello, Circles!!'
+    return 'Jutin\' Dev Server!!'
 
 
 @app.route('/circles/api/v1.0/users/', defaults={'person_id': None})
