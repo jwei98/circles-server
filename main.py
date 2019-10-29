@@ -30,7 +30,6 @@ def hello():
     return 'Hello, Circles!!'
 
 
-@app.route('/circles/api/v1.0/users/', defaults={'person_id': None,})
 @app.route('/circles/api/v1.0/users/<int:person_id>/', defaults={'resource': None})
 @app.route('/circles/api/v1.0/users/<int:person_id>/<resource>', methods=['GET'])
 def get_person(person_id, resource):
@@ -40,7 +39,6 @@ def get_person(person_id, resource):
     # Fetch the person
     person = Person.match(graph, person_id).first()
     if not person:
-        print("NO")
         abort(404, description="Resource not found")
     if not resource:
         # Request specific user.
@@ -63,32 +61,62 @@ def get_person(person_id, resource):
     return jsonify(output)
 
 
-@app.route('/circles/api/v1.0/circles/', defaults={'circle_id': None})
-@app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET'])
-def get_circle(circle_id):
+@app.route('/circles/api/v1.0/circles/<int:circle_id>/', defaults={'resource': None})
+@app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>', methods=['GET'])
+def get_circle(circle_id, resource):
     # Request all circles.
     if not circle_id:
         return jsonify(Circle=get_all_nodes(Circle))
 
-    # Request specific circle.
+    # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
         abort(404, description="Resource not found")
-    return jsonify(Circle=circle.json_repr())
+    if not resource:
+        # Request specific circle
+        return jsonify(Circle=circle.json_repr())
+
+    # Request specific resource associated with the circle
+    output = []
+    if resource not in ['members', 'events']:
+        abort(404, description="Invalid resource specified")
+
+    if resource == 'members':
+        for m in circle.HasMember:
+            output.append(m.json_repr())
+    if resource == 'events':
+        for e in circle.Scheduled:
+            output.append(e.json_repr())
+    return jsonify(output)
 
 
-@app.route('/circles/api/v1.0/events/', defaults={'event_id': None})
-@app.route('/circles/api/v1.0/events/<int:event_id>', methods=['GET'])
-def get_event(event_id):
+@app.route('/circles/api/v1.0/events/<int:event_id>/', defaults={'resource': None})
+@app.route('/circles/api/v1.0/events/<int:event_id>/<resource>', methods=['GET'])
+def get_event(event_id, resource):
     # Request all events.
     if not event_id:
         return jsonify(Event=get_all_nodes(Event))
 
-    # Request specific event.
+    # Fetch event.
     event = Event.match(graph, event_id).first()
     if not event:
         abort(404, description="Resource not found")
-    return jsonify(Event=event.json_repr())
+    if not resource:
+        # Request specific event.
+        return jsonify(Event=event.json_repr())
+
+        # Request specific resource associated with the circle
+    output = []
+    if resource not in ['invitees', 'circle']:
+        abort(404, description="Invalid resource specified")
+
+    if resource == 'circle':
+        for c in event.BelongsTo:
+            output.append(c.json_repr())
+    if resource == 'invitees':
+        for p in event.Invited:
+            output.append(p.json_repr())
+    return jsonify(output)
 
 
 @app.errorhandler(404)
