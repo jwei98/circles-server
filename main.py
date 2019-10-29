@@ -58,7 +58,7 @@ def get_person_circles(person_id):
 
 
 @app.route('/circles/api/v1.0/users/<int:person_id>/events', methods=['GET'])
-def get_person_circles(person_id):
+def get_person_events(person_id):
     if not person_id:
         return get_event(None)
     person = Person.match(graph, person_id).first()
