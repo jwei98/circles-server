@@ -44,14 +44,14 @@ def get_person(person_id, resource):
     # Fetch the person
     person = Person.match(graph, person_id).first()
     if not person:
-        abort(404, description="Resource not found")
+        abort(404, description='Resource not found')
     if not resource:
         # Request specific user.
         return jsonify(person.json_repr())
 
     # Request specific resource associated with the person
     if resource not in [CIRCLES, EVENTS, KNOWS]:
-        abort(404, description="Invalid resource specified")
+        abort(404, description='Invalid resource specified')
 
     elif resource == CIRCLES:
         return [c.json_repr() for c in person.IsMember]
@@ -67,14 +67,14 @@ def get_circle(circle_id, resource):
     # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
-        abort(404, description="Resource not found")
+        abort(404, description='Resource not found')
     if not resource:
         # Request specific circle
         return jsonify(circle.json_repr())
 
     # Request specific resource associated with the circle
     if resource not in [MEMBERS, EVENTS]:
-        abort(404, description="Invalid resource specified")
+        abort(404, description='Invalid resource specified')
 
     elif resource == MEMBERS:
         return [m.json_repr() for m in circle.HasMember]
@@ -88,19 +88,22 @@ def get_event(event_id, resource):
     # Fetch event.
     event = Event.match(graph, event_id).first()
     if not event:
-        abort(404, description="Resource not found")
+        abort(404, description='Resource not found')
     if not resource:
         # Request specific event.
         return jsonify(event.json_repr())
 
         # Request specific resource associated with the circle
     if resource not in [INVITEES, CIRCLE]:
-        abort(404, description="Invalid resource specified")
+        abort(404, description='Invalid resource specified')
 
     elif resource == CIRCLE:
-        return [c.json_repr() for c in event.BelongsTo]
+        return event.BelongsTo[0].json_repr()
     elif resource == INVITEES:
-        return [p.json_repr() for p in event.Invited]
+        rsvp = {}
+        for p in event.Invited:
+            rsvp[p.__primary_value__]= p.InvitedTo[event_id].attending # TODO: Make sure this line is OK
+        return jsonify(rsvp)
 
 
 @app.errorhandler(404)
