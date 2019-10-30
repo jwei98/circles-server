@@ -10,11 +10,19 @@ from py2neo import Graph
 import auth
 from Models import Person, Circle, Event
 
+KNOWS = 'Knows'
+MEMBERS = 'Members'
+INVITEES = 'Invitees'
+CIRCLES = 'Circles'
+CIRCLE = 'Circle'
+EVENTS = 'Events'
+
 app = Flask(__name__)
 
 # Connect to Neo4j graph.
 host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username, password=password, secure=True)
+
 
 
 def get_all_nodes(graph_cls):
@@ -33,9 +41,6 @@ def hello():
 @app.route('/circles/api/v1.0/users/<int:person_id>/', defaults={'resource': None})
 @app.route('/circles/api/v1.0/users/<int:person_id>/<resource>', methods=['GET'])
 def get_person(person_id, resource):
-    # Request all users.
-    if not person_id:
-        return jsonify(Person=get_all_nodes(Person))
     # Fetch the person
     person = Person.match(graph, person_id).first()
     if not person:
@@ -45,29 +50,20 @@ def get_person(person_id, resource):
         return jsonify(person.json_repr())
 
     # Request specific resource associated with the person
-    output = []
-    if resource not in ['circles', 'events', 'knows']:
+    if resource not in [CIRCLES, EVENTS, KNOWS]:
         abort(404, description="Invalid resource specified")
 
-    if resource == 'circles':
-        for c in person.IsMember:
-            output.append(c.json_repr())
-    if resource == 'events':
-        for e in person.InvitedTo:
-            output.append(e.json_repr())
-    if resource == 'knows':
-        for k in person.Knows:
-            output.append(k.json_repr())
-    return jsonify(output)
+    elif resource == CIRCLES:
+        return [c.json_repr() for c in person.IsMember]
+    elif resource == EVENTS:
+        return [e.json_repr() for e in person.InvitedTo]
+    elif resource == KNOWS:
+        return [k.json_repr() for k in person.Knows]
 
 
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/', defaults={'resource': None})
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>', methods=['GET'])
 def get_circle(circle_id, resource):
-    # Request all circles.
-    if not circle_id:
-        return jsonify(Circle=get_all_nodes(Circle))
-
     # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
@@ -77,26 +73,18 @@ def get_circle(circle_id, resource):
         return jsonify(circle.json_repr())
 
     # Request specific resource associated with the circle
-    output = []
-    if resource not in ['members', 'events']:
+    if resource not in [MEMBERS, EVENTS]:
         abort(404, description="Invalid resource specified")
 
-    if resource == 'members':
-        for m in circle.HasMember:
-            output.append(m.json_repr())
-    if resource == 'events':
-        for e in circle.Scheduled:
-            output.append(e.json_repr())
-    return jsonify(output)
+    elif resource == MEMBERS:
+        return [m.json_repr() for m in circle.HasMember]
+    elif resource == EVENTS:
+        return [e.json_repr for e in circle.Scheduled]
 
 
 @app.route('/circles/api/v1.0/events/<int:event_id>/', defaults={'resource': None})
 @app.route('/circles/api/v1.0/events/<int:event_id>/<resource>', methods=['GET'])
 def get_event(event_id, resource):
-    # Request all events.
-    if not event_id:
-        return jsonify(Event=get_all_nodes(Event))
-
     # Fetch event.
     event = Event.match(graph, event_id).first()
     if not event:
@@ -106,17 +94,13 @@ def get_event(event_id, resource):
         return jsonify(event.json_repr())
 
         # Request specific resource associated with the circle
-    output = []
-    if resource not in ['invitees', 'circle']:
+    if resource not in [INVITEES, CIRCLE]:
         abort(404, description="Invalid resource specified")
 
-    if resource == 'circle':
-        for c in event.BelongsTo:
-            output.append(c.json_repr())
-    if resource == 'invitees':
-        for p in event.Invited:
-            output.append(p.json_repr())
-    return jsonify(output)
+    elif resource == CIRCLE:
+        return [c.json_repr() for c in event.BelongsTo]
+    elif resource == INVITEES:
+        return [p.json_repr() for p in event.Invited]
 
 
 @app.errorhandler(404)
