@@ -90,6 +90,7 @@ class Event(GraphObject):
         circle.Scheduled.add(self)
         # Each member in the circle should be invited to the event.
         for member in circle.HasMember:
+            self.Invited.add(member)
             member.InvitedTo.add(self, properties={'attending': False})
 
     def json_repr(self):
