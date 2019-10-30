@@ -98,11 +98,11 @@ def get_event(event_id, resource):
         abort(404, description='Invalid resource specified')
 
     elif resource == CIRCLE:
-        return event.BelongsTo[0].json_repr()
+        return list(event.BelongsTo)[0].json_repr()
     elif resource == INVITEES:
         rsvp = {}
         for p in event.Invited:
-            rsvp[p.__primaryvalue__]= p.InvitedTo.get(event, 'attending')
+            rsvp[p.__primaryvalue__] = p.InvitedTo.get(event, 'attending')
         return jsonify(rsvp)
 
 
