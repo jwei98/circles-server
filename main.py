@@ -10,12 +10,12 @@ from py2neo import Graph
 import auth
 from Models import Person, Circle, Event
 
-KNOWS = 'Knows'
-MEMBERS = 'Members'
-INVITEES = 'Invitees'
-CIRCLES = 'Circles'
-CIRCLE = 'Circle'
-EVENTS = 'Events'
+KNOWS = 'knows'
+MEMBERS = 'members'
+INVITEES = 'invitees'
+CIRCLES = 'circles'
+CIRCLE = 'circle'
+EVENTS = 'events'
 
 app = Flask(__name__)
 
@@ -102,7 +102,7 @@ def get_event(event_id, resource):
     elif resource == INVITEES:
         rsvp = {}
         for p in event.Invited:
-            rsvp[p.__primary_value__]= p.InvitedTo[event_id].attending # TODO: Make sure this line is OK
+            rsvp[p.__primaryvalue__]= p.InvitedTo.get(event, 'attending')
         return jsonify(rsvp)
 
 
