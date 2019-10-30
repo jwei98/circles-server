@@ -54,11 +54,11 @@ def get_person(person_id, resource):
         abort(404, description='Invalid resource specified')
 
     elif resource == CIRCLES:
-        return [c.json_repr() for c in person.IsMember]
+        return jsonify([c.json_repr() for c in person.IsMember])
     elif resource == EVENTS:
-        return [e.json_repr() for e in person.InvitedTo]
+        return jsonify([e.json_repr() for e in person.InvitedTo])
     elif resource == KNOWS:
-        return [k.json_repr() for k in person.Knows]
+        return jsonify([k.json_repr() for k in person.Knows])
 
 
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/', defaults={'resource': None})
@@ -77,9 +77,9 @@ def get_circle(circle_id, resource):
         abort(404, description='Invalid resource specified')
 
     elif resource == MEMBERS:
-        return [m.json_repr() for m in circle.HasMember]
+        return jsonify([m.json_repr() for m in circle.HasMember])
     elif resource == EVENTS:
-        return [e.json_repr for e in circle.Scheduled]
+        return jsonify([e.json_repr() for e in circle.Scheduled])
 
 
 @app.route('/circles/api/v1.0/events/<int:event_id>/', defaults={'resource': None})
@@ -98,7 +98,7 @@ def get_event(event_id, resource):
         abort(404, description='Invalid resource specified')
 
     elif resource == CIRCLE:
-        return list(event.BelongsTo)[0].json_repr()
+        return jsonify(list(event.BelongsTo)[0].json_repr())
     elif resource == INVITEES:
         rsvp = {}
         for p in event.Invited:
