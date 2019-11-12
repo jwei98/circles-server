@@ -75,16 +75,19 @@ class Event(GraphObject):
     display_name = Property()
     description = Property()
     location = Property()
-    datetime = Property()
+    start_datetime = Property()
+    end_datetime = Property()
 
     BelongsTo = Related('Circle', 'BELONGS_TO')
     Invited = Related('Person', 'INVITED')
 
-    def __init__(self, display_name, description, location, datetime, circle):
+    def __init__(self, display_name, description, location,
+            start_datetime, end_datetime, circle):
         self.display_name = display_name
         self.description = description
         self.location = location 
-        self.datetime = datetime
+        self.start_datetime = start_datetime
+        self.end_datetime = end_datetime
         # Events should always be linked to a circle.
         self.BelongsTo.add(circle)
         circle.Scheduled.add(self)
@@ -99,7 +102,8 @@ class Event(GraphObject):
             'display_name': self.display_name,
             'description': self.description,
             'location': self.location,
-            'datetime': self.datetime,
+            'start_datetime': self.start_datetime,
+            'end_datetime': self.end_datetime,
             'BelongsTo': [p.__primaryvalue__ for p in list(self.BelongsTo)],
             'Invited': [p.__primaryvalue__ for p in list(self.Invited)]
         }
