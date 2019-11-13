@@ -4,7 +4,7 @@ Main driver for Flask server.
 import os
 import json
 
-from flask import (Flask, abort, jsonify, render_template)
+from flask import (Flask, abort, jsonify, request, render_template)
 from py2neo import Graph
 
 import auth
@@ -39,26 +39,40 @@ def hello():
 
 
 @app.route('/circles/api/v1.0/users/<int:person_id>/', defaults={'resource': None})
-@app.route('/circles/api/v1.0/users/<int:person_id>/<resource>', methods=['GET'])
+@app.route('/circles/api/v1.0/users/<int:person_id>/<resource>', methods=['GET', 'POST'])
 def get_person(person_id, resource):
-    # Fetch the person
-    person = Person.match(graph, person_id).first()
-    if not person:
-        abort(404, description='Resource not found')
-    if not resource:
-        # Request specific user.
-        return jsonify(person.json_repr())
+    if request.method == 'PUT':
+        content = request.get_json()
+        dn = content['display_name']
+        email = content['email']
+        photo = content['photo']
+        newPerson = Person(dn, email, photo)
+        for i in content['Knows']:
+            newPerson.Knows.add(i)
+        for i in content['IsMember']:
+            newPerson.IsMember.add(i)
+        for i in content['InvitedTo']:
+            newPerson.InvitedTo.add(i)
+        graph.push(newPerson)
+    if request.method == 'GET':
+        # Fetch the person
+        person = Person.match(graph, person_id).first()
+        if not person:
+            abort(404, description='Resource not found')
+        if not resource:
+            # Request specific user.
+            return jsonify(person.json_repr())
 
-    # Request specific resource associated with the person
-    if resource not in [CIRCLES, EVENTS, KNOWS]:
-        abort(404, description='Invalid resource specified')
+        # Request specific resource associated with the person
+        if resource not in [CIRCLES, EVENTS, KNOWS]:
+            abort(404, description='Invalid resource specified')
 
-    elif resource == CIRCLES:
-        return jsonify([c.json_repr() for c in person.IsMember])
-    elif resource == EVENTS:
-        return jsonify([e.json_repr() for e in person.InvitedTo])
-    elif resource == KNOWS:
-        return jsonify([k.json_repr() for k in person.Knows])
+        elif resource == CIRCLES:
+            return jsonify([c.json_repr() for c in person.IsMember])
+        elif resource == EVENTS:
+            return jsonify([e.json_repr() for e in person.InvitedTo])
+        elif resource == KNOWS:
+            return jsonify([k.json_repr() for k in person.Knows])
 
 
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/', defaults={'resource': None})
