@@ -24,7 +24,6 @@ host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username, password=password, secure=True)
 
 
-
 def get_all_nodes(graph_cls):
     """Gets all nodes of a certain GraphObject type from graph, e.g. Person"""
     nodes = []
@@ -38,9 +37,11 @@ def hello():
     return 'Hello, Circles!!'
 
 
-@app.route('/circles/api/v1.0/users/<int:person_id>/', defaults={'resource': None})
-@app.route('/circles/api/v1.0/users/<int:person_id>/<resource>', methods=['GET'])
-def get_person(person_id, resource):
+@app.route('/circles/api/v1.0/users/<int:person_id>/',
+           defaults={'resource': None})
+@app.route('/circles/api/v1.0/users/<int:person_id>/<resource>',
+           methods=['GET'])
+def users(person_id, resource):
     # Fetch the person
     person = Person.match(graph, person_id).first()
     if not person:
@@ -61,9 +62,11 @@ def get_person(person_id, resource):
         return jsonify([k.json_repr() for k in person.Knows])
 
 
-@app.route('/circles/api/v1.0/circles/<int:circle_id>/', defaults={'resource': None})
-@app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>', methods=['GET'])
-def get_circle(circle_id, resource):
+@app.route('/circles/api/v1.0/circles/<int:circle_id>/',
+           defaults={'resource': None})
+@app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>',
+           methods=['GET'])
+def circles(circle_id, resource):
     # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
@@ -82,9 +85,11 @@ def get_circle(circle_id, resource):
         return jsonify([e.json_repr() for e in circle.Scheduled])
 
 
-@app.route('/circles/api/v1.0/events/<int:event_id>/', defaults={'resource': None})
-@app.route('/circles/api/v1.0/events/<int:event_id>/<resource>', methods=['GET'])
-def get_event(event_id, resource):
+@app.route('/circles/api/v1.0/events/<int:event_id>/',
+           defaults={'resource': None})
+@app.route('/circles/api/v1.0/events/<int:event_id>/<resource>',
+           methods=['GET'])
+def events(event_id, resource):
     # Fetch event.
     event = Event.match(graph, event_id).first()
     if not event:
