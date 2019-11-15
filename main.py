@@ -24,7 +24,6 @@ host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username, password=password, secure=True)
 
 
-
 def get_all_nodes(graph_cls):
     """Gets all nodes of a certain GraphObject type from graph, e.g. Person"""
     nodes = []
@@ -38,8 +37,10 @@ def hello():
     return 'Hello, Circles!!'
 
 
-@app.route('/circles/api/v1.0/users/<int:person_id>/', defaults={'resource': None})
-@app.route('/circles/api/v1.0/users/<int:person_id>/<resource>', methods=['GET'])
+@app.route('/circles/api/v1.0/users/<int:person_id>/',
+           defaults={'resource': None})
+@app.route('/circles/api/v1.0/users/<int:person_id>/<resource>',
+           methods=['GET'])
 def get_person(person_id, resource):
     # Fetch the person
     person = Person.match(graph, person_id).first()
@@ -54,36 +55,41 @@ def get_person(person_id, resource):
         abort(404, description='Invalid resource specified')
 
     elif resource == CIRCLES:
-        return jsonify([c.json_repr() for c in person.IsMember])
+        return jsonify([c.json_repr(graph) for c in person.IsMember])
     elif resource == EVENTS:
-        return jsonify([e.json_repr() for e in person.InvitedTo])
+        return jsonify([e.json_repr(graph) for e in person.InvitedTo])
     elif resource == KNOWS:
         return jsonify([k.json_repr() for k in person.Knows])
 
 
-@app.route('/circles/api/v1.0/circles/<int:circle_id>/', defaults={'resource': None})
-@app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>', methods=['GET'])
+@app.route('/circles/api/v1.0/circles/<int:circle_id>/',
+           defaults={'resource': None})
+@app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>',
+           methods=['GET'])
 def get_circle(circle_id, resource):
+
     # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
         abort(404, description='Resource not found')
     if not resource:
         # Request specific circle
-        return jsonify(circle.json_repr())
+        return jsonify(circle.json_repr(graph))
 
     # Request specific resource associated with the circle
     if resource not in [MEMBERS, EVENTS]:
         abort(404, description='Invalid resource specified')
-
     elif resource == MEMBERS:
-        return jsonify([m.json_repr() for m in circle.HasMember])
+        return jsonify(
+            [m.json_repr() for m in Circle.members_of(graph, circle_id)])
     elif resource == EVENTS:
-        return jsonify([e.json_repr() for e in circle.Scheduled])
+        return jsonify([e.json_repr(graph) for e in circle.Scheduled])
 
 
-@app.route('/circles/api/v1.0/events/<int:event_id>/', defaults={'resource': None})
-@app.route('/circles/api/v1.0/events/<int:event_id>/<resource>', methods=['GET'])
+@app.route('/circles/api/v1.0/events/<int:event_id>/',
+           defaults={'resource': None})
+@app.route('/circles/api/v1.0/events/<int:event_id>/<resource>',
+           methods=['GET'])
 def get_event(event_id, resource):
     # Fetch event.
     event = Event.match(graph, event_id).first()
@@ -91,19 +97,17 @@ def get_event(event_id, resource):
         abort(404, description='Resource not found')
     if not resource:
         # Request specific event.
-        return jsonify(event.json_repr())
+        return jsonify(event.json_repr(graph))
 
         # Request specific resource associated with the circle
     if resource not in [INVITEES, CIRCLE]:
         abort(404, description='Invalid resource specified')
 
     elif resource == CIRCLE:
-        return jsonify(list(event.BelongsTo)[0].json_repr())
+        return jsonify(
+            list(event.circles_of(graph, event_id))[0].json_repr(graph))
     elif resource == INVITEES:
-        rsvp = {}
-        for p in event.Invited:
-            rsvp[p.__primaryvalue__] = p.InvitedTo.get(event, 'attending')
-        return jsonify(rsvp)
+        return event.json_repr(graph)['Invited']
 
 
 @app.errorhandler(404)
