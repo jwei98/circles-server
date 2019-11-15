@@ -23,6 +23,10 @@ Define all data models.
 from py2neo.ogm import (GraphObject, Property, Related, RelatedTo, RelatedFrom)
 
 
+class GraphError(Exception):
+    pass
+
+
 # TODO: Consider __primarykey__ as email rather than implicit __id__
 class Person(GraphObject):
     display_name = Property()
@@ -61,6 +65,24 @@ class Circle(GraphObject):
         self.display_name = display_name
         self.description = description
 
+    @classmethod
+    def from_json(cls, json, graph):
+        """
+        Required json keys:
+        - display_name
+        Optional keys:
+        - description
+        - HasMember
+        """
+        c = cls(json['display_name'], json.get('description'))
+        for p_id in json.get('HasMember'):
+            p = Person.match(graph, p_id).first()
+            if not p:
+                raise GraphError('Person with id %s not found in graph.' %
+                                 p_id)
+            c.HasMember.add(p)
+        return c
+
     def json_repr(self):
         return {
             'id': self.__primaryvalue__,
@@ -81,11 +103,11 @@ class Event(GraphObject):
     BelongsTo = Related('Circle', 'BELONGS_TO')
     Invited = Related('Person', 'INVITED')
 
-    def __init__(self, display_name, description, location,
-            start_datetime, end_datetime, circle):
+    def __init__(self, display_name, description, location, start_datetime,
+                 end_datetime, circle):
         self.display_name = display_name
         self.description = description
-        self.location = location 
+        self.location = location
         self.start_datetime = start_datetime
         self.end_datetime = end_datetime
         # Events should always be linked to a circle.
@@ -95,6 +117,25 @@ class Event(GraphObject):
         for member in circle.HasMember:
             self.Invited.add(member)
             member.InvitedTo.add(self, properties={'attending': False})
+
+    @classmethod
+    def from_json(cls, json, graph):
+        """
+        Required json keys:
+        - display_name
+        - location
+        - start_datetime
+        - end_datetime
+        - circle_id
+        Optional keys:
+        - description
+        """
+        c = Circle.match(graph, json['circle_id']).first()
+        if not c:
+            raise GraphError('Circle %s does not exist.' % json['circle_id'])
+        return cls(json['display_name'], json.get('description'),
+                   json['location'], json['start_datetime'],
+                   json['end_datetime'], c)
 
     def json_repr(self):
         return {
