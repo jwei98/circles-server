@@ -107,6 +107,59 @@ def get_event(event_id, resource):
 """
 POST routes.
 """
+@app.route('/circles/api/v1.0/users', methods=['POST'])
+def post_user():
+    """
+       Required json keys:
+       - display_name: String
+       - Email: String
+       - Photo: String
+       Optional keys:
+       - Circles: [<Int>]
+       - Events: [<Int>]
+       """
+    req_json = request.get_json()
+    try:
+        #Create Person Object
+        #add person to circles
+        #create knows reltionships with people
+
+        p = Person.from_json(req_json)
+        circles = [
+            Circle.match(graph, c_id).first() for c_id in req_json['Circles']
+        ]
+        events = [
+            Event.match(graph, e_id).first() for e_id in req_json['Events']
+        ]
+        # Add all members to circle.
+        for i, c in enumerate(circles):
+            if not c:
+                bad_request( 'Attempted to access circle with id %s who does not exist.' %
+                    req_json['Circles'][i])
+            p.IsMember.add(c)
+
+        for i, p in enumerate(members):
+            if not p:
+                bad_request(
+                    'Attempted to add person with id %s who does not exist.' %
+                    req_json['People'][i])
+            p.IsMember.add(c)
+            # If we don't push changes here, they'll get overwritten later.
+            graph.push(p)
+
+        # Everyone in circle should 'know' each other.
+        for p1, p2 in combinations(members, 2):
+            # We need to pull so we don't overwrite earlier transactions.
+            graph.pull(p1)
+            p1.Knows.add(p2)
+            graph.push(p1)
+
+        graph.push(p)
+        return SUCCESS_JSON
+    except KeyError as e:
+        bad_request('Request JSON must include key %s' % e)
+
+
 @app.route('/circles/api/v1.0/circles', methods=['POST'])
 def post_circle():
     """

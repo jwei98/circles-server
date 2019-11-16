@@ -44,6 +44,21 @@ class Person(GraphObject):
         self.email = email
         self.photo = photo
 
+    @classmethod
+    def from_json(cls, json):
+        """
+        Required json keys:
+        - display_name
+        - email
+        - photo
+        Optional keys:
+        - Circles
+        - Events
+        """
+        c = cls(json['display_name'], json['email'], json['photo'])
+
+        return c
+
     @staticmethod
     def attendance_of(graph, person_id):
         query = Template(ONE_HOP + ', r.attending').substitute(
