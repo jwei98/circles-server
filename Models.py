@@ -44,15 +44,25 @@ class Person(GraphObject):
         self.email = email
         self.photo = photo
 
-    def json_repr(self):
+    @staticmethod
+    def attendance_of(graph, person_id):
+        query = Template(ONE_HOP + ', r.attending').substitute(
+            src_type='Person',
+            src_id=person_id,
+            r_type='INVITED_TO',
+            match_type='Event')
+        matches = graph.run(query).data()
+        return {m['ID(match)']: m['r.attending'] for m in matches}
+
+    def json_repr(self, graph):
         return {
             'id': self.__primaryvalue__,
             'display_name': self.display_name,
             'email': self.email,
             'photo': self.photo,
-            'Knows': [p.__primaryvalue__ for p in list(self.Knows)],
-            'IsMember': [p.__primaryvalue__ for p in list(self.IsMember)],
-            'InvitedTo': [p.__primaryvalue__ for p in list(self.InvitedTo)]
+            'People': [p.__primaryvalue__ for p in list(self.Knows)],
+            'Circles': [p.__primaryvalue__ for p in list(self.IsMember)],
+            'Events': Person.attendance_of(graph, self.__primaryvalue__)
         }
 
 
@@ -66,13 +76,24 @@ class Circle(GraphObject):
         self.display_name = display_name
         self.description = description
 
+    @classmethod
+    def from_json(cls, json):
+        """
+        Required json keys:
+        - display_name
+        Optional keys:
+        - description
+        - HasMember
+        """
+        c = cls(json['display_name'], json.get('description'))
+        return c
+
     @staticmethod
     def members_of(graph, circle_id):
-        query = Template(ONE_HOP + ', r.attending').substitute(
-            src_type='Circle',
-            src_id=circle_id,
-            r_type='IS_MEMBER',
-            match_type='Person')
+        query = Template(ONE_HOP).substitute(src_type='Circle',
+                                             src_id=circle_id,
+                                             r_type='IS_MEMBER',
+                                             match_type='Person')
         matches = graph.run(query).data()
         return [Person.match(graph, m['ID(match)']).first() for m in matches]
 
@@ -82,8 +103,8 @@ class Circle(GraphObject):
             'id': self.__primaryvalue__,
             'display_name': self.display_name,
             'description': self.description,
-            'HasMember': [p.__primaryvalue__ for p in members],
-            'Scheduled': [e.__primaryvalue__ for e in list(self.Scheduled)]
+            'People': [p.__primaryvalue__ for p in members],
+            'Events': [e.__primaryvalue__ for e in list(self.Scheduled)]
         }
 
 
@@ -95,21 +116,18 @@ class Event(GraphObject):
     end_datetime = Property()
 
     def __init__(self, display_name, description, location, start_datetime,
-                 end_datetime, circle, graph):
-        # TODO: Passing in graph here is SO gross. Please fix.
+                 end_datetime):
         self.display_name = display_name
         self.description = description
         self.location = location
         self.start_datetime = start_datetime
         self.end_datetime = end_datetime
-        # Events should always be linked to a circle.
-        circle.Scheduled.add(self)
-        # Each member in the circle should be invited to the event.
-        for member in Circle.members_of(graph, circle.__primaryvalue__):
-            member.InvitedTo.add(self, properties={'attending': False})
-            graph.push(member)
-        graph.push(circle)
-        graph.push(self)
+
+    @classmethod
+    def from_json(cls, json):
+        return cls(json['display_name'], json.get('description'),
+                   json['location'], json['start_datetime'],
+                   json['end_datetime'])
 
     @staticmethod
     def invitees_of(graph, event_id):
@@ -124,7 +142,6 @@ class Event(GraphObject):
 
     @staticmethod
     def circles_of(graph, event_id):
-        # TODO: Should events be limited to a single Circle?
         query = Template(ONE_HOP).substitute(src_type='Event',
                                              src_id=event_id,
                                              r_type='SCHEDULED',
@@ -142,8 +159,8 @@ class Event(GraphObject):
             'location': self.location,
             'start_datetime': self.start_datetime,
             'end_datetime': self.end_datetime,
-            'BelongsTo': [c.__primaryvalue__ for c in circles],
-            'Invited':
+            'Circle': circles[0].__primaryvalue__,
+            'People':
             {p.__primaryvalue__: attending
              for p, attending in invitees}
         }
