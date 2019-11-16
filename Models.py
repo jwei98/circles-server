@@ -142,7 +142,6 @@ class Event(GraphObject):
 
     @staticmethod
     def circles_of(graph, event_id):
-        # TODO: Should events be limited to a single Circle?
         query = Template(ONE_HOP).substitute(src_type='Event',
                                              src_id=event_id,
                                              r_type='SCHEDULED',
@@ -160,7 +159,7 @@ class Event(GraphObject):
             'location': self.location,
             'start_datetime': self.start_datetime,
             'end_datetime': self.end_datetime,
-            'Circles': [c.__primaryvalue__ for c in circles],
+            'Circle': c.__primaryvalue__ for c in circles[0],
             'People':
             {p.__primaryvalue__: attending
              for p, attending in invitees}
