@@ -17,6 +17,8 @@ INVITEES = 'invitees'
 CIRCLES = 'circles'
 CIRCLE = 'circle'
 EVENTS = 'events'
+USERS = 'users'
+PEOPLE = 'people'
 SUCCESS_JSON = json.dumps({'success': True}), 200, {
     'ContentType': 'application/json'
 }
@@ -43,14 +45,14 @@ def get_person(person_id, resource):
         return jsonify(person.json_repr(graph))
 
     # Request specific resource associated with the person
-    if resource not in [CIRCLES, EVENTS, KNOWS]:
+    if resource not in [CIRCLES, EVENTS, USERS, KNOWS, PEOPLE]:
         abort(404, description='Invalid resource specified')
 
     elif resource == CIRCLES:
         return jsonify([c.json_repr(graph) for c in person.IsMember])
     elif resource == EVENTS:
         return jsonify([e.json_repr(graph) for e in person.InvitedTo])
-    elif resource == KNOWS:
+    elif resource in [PEOPLE, USERS, KNOWS]:
         return jsonify([k.json_repr(graph) for k in person.Knows])
 
 
@@ -69,9 +71,9 @@ def get_circle(circle_id, resource):
         return jsonify(circle.json_repr(graph))
 
     # Request specific resource associated with the circle
-    if resource not in [MEMBERS, EVENTS]:
+    if resource not in [PEOPLE, USERS, EVENTS, INVITEES]:
         abort(404, description='Invalid resource specified')
-    elif resource == MEMBERS:
+    elif resource in [PEOPLE, USERS, INVITEES]:
         return jsonify(
             [m.json_repr(graph) for m in Circle.members_of(graph, circle_id)])
     elif resource == EVENTS:
@@ -92,13 +94,13 @@ def get_event(event_id, resource):
         return jsonify(event.json_repr(graph))
 
         # Request specific resource associated with the circle
-    if resource not in [INVITEES, CIRCLE]:
+    if resource not in [PEOPLE, USERS, CIRCLE, CIRCLES]:
         abort(404, description='Invalid resource specified')
 
-    elif resource == CIRCLE:
+    elif resource in [CIRCLE, CIRCLES]:
         return jsonify(
             list(event.circles_of(graph, event_id))[0].json_repr(graph))
-    elif resource == INVITEES:
+    elif resource in [PEOPLE, USERS]:
         return event.json_repr(graph)['People']
 
 
