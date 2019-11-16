@@ -125,16 +125,6 @@ class Event(GraphObject):
 
     @classmethod
     def from_json(cls, json):
-        """
-        Required json keys:
-        - display_name
-        - location
-        - start_datetime
-        - end_datetime
-        - circle_id
-        Optional keys:
-        - description
-        """
         return cls(json['display_name'], json.get('description'),
                    json['location'], json['start_datetime'],
                    json['end_datetime'])

@@ -107,13 +107,19 @@ POST routes.
 """
 @app.route('/circles/api/v1.0/circles', methods=['POST'])
 def post_circle():
+        """
+        Required json keys:
+        - display_name: String
+        - People: [<int>, <int>, ..., <int>]
+        Optional keys:
+        - description: String
+        """
     req_json = request.get_json()
     try:
         c = Circle.from_json(req_json)
         # Make queries for actual Person objects given their id's.
         members = [
-            Person.match(graph, p_id).first()
-            for p_id in req_json.get('Members')
+            Person.match(graph, p_id).first() for p_id in req_json['People']
         ]
 
         # Add all members to circle.
@@ -121,7 +127,7 @@ def post_circle():
             if not p:
                 bad_request(
                     'Attempted to add person with id %s who does not exist.' %
-                    req_json.get('Members')[i])
+                    req_json['People'][i])
             p.IsMember.add(c)
             # If we don't push changes here, they'll get overwritten later.
             graph.push(p)
@@ -136,26 +142,36 @@ def post_circle():
         graph.push(c)
 
         return SUCCESS_JSON
-    # Thrown from Circle.from_json() when accessing properties in json.
+    # KeyErrors will be thrown if any required JSON fields are not present.
     except KeyError as e:
         bad_request('Request JSON must include key %s' % e)
 
 
 @app.route('/circles/api/v1.0/events', methods=['POST'])
 def post_event():
+        """
+        Required json keys:
+        - display_name: String
+        - location: String
+        - start_datetime: <datetime>
+        - end_datetime: <datetime>
+        - Circle: <int>
+        Optional keys:
+        - description: String
+        """
     req_json = request.get_json()
     try:
         # Circle must exist to create event.
-        c = Circle.match(graph, req_json['circle_id']).first()
+        c = Circle.match(graph, req_json['Circle']).first()
         if not c:
-            bad_request('Circle %s does not exist.' % req_json['circle_id'])
+            bad_request('Circle %s does not exist.' % req_json['Circle'])
 
         # Event belongs to a circle.
         e = Event.from_json(req_json)
         c.Scheduled.add(e)
 
         # Invite all members of circle to event.
-        members = Circle.members_of(graph, req_json['circle_id'])
+        members = Circle.members_of(graph, req_json['Circle'])
         for p in members:
             p.InvitedTo.add(e, properties={'attending': False})
             graph.push(p)
