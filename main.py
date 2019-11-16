@@ -3,12 +3,13 @@ Main driver for Flask server.
 """
 import os
 import json
+from itertools import combinations
 
 from flask import (Flask, abort, jsonify, render_template, request)
 from py2neo import Graph
 
 import auth
-from Models import Person, Circle, Event, GraphError
+from Models import Person, Circle, Event
 
 KNOWS = 'knows'
 MEMBERS = 'members'
@@ -16,7 +17,7 @@ INVITEES = 'invitees'
 CIRCLES = 'circles'
 CIRCLE = 'circle'
 EVENTS = 'events'
-SUCCESS_CODE = json.dumps({'success': True}), 200, {
+SUCCESS_JSON = json.dumps({'success': True}), 200, {
     'ContentType': 'application/json'
 }
 
@@ -39,7 +40,7 @@ def get_person(person_id, resource):
         abort(404, description='Resource not found')
     if not resource:
         # Request specific user.
-        return jsonify(person.json_repr())
+        return jsonify(person.json_repr(graph))
 
     # Request specific resource associated with the person
     if resource not in [CIRCLES, EVENTS, KNOWS]:
@@ -50,7 +51,7 @@ def get_person(person_id, resource):
     elif resource == EVENTS:
         return jsonify([e.json_repr(graph) for e in person.InvitedTo])
     elif resource == KNOWS:
-        return jsonify([k.json_repr() for k in person.Knows])
+        return jsonify([k.json_repr(graph) for k in person.Knows])
 
 
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/',
@@ -72,7 +73,7 @@ def get_circle(circle_id, resource):
         abort(404, description='Invalid resource specified')
     elif resource == MEMBERS:
         return jsonify(
-            [m.json_repr() for m in Circle.members_of(graph, circle_id)])
+            [m.json_repr(graph) for m in Circle.members_of(graph, circle_id)])
     elif resource == EVENTS:
         return jsonify([e.json_repr(graph) for e in circle.Scheduled])
 
@@ -98,7 +99,7 @@ def get_event(event_id, resource):
         return jsonify(
             list(event.circles_of(graph, event_id))[0].json_repr(graph))
     elif resource == INVITEES:
-        return event.json_repr(graph)['Invited']
+        return event.json_repr(graph)['People']
 
 
 """
@@ -107,35 +108,62 @@ POST routes.
 @app.route('/circles/api/v1.0/circles', methods=['POST'])
 def post_circle():
     req_json = request.get_json()
-    # Circle.from_json handles throwing errors with improper JSON data.
     try:
-        c = Circle.from_json(req_json, graph)
+        c = Circle.from_json(req_json)
+        # Make queries for actual Person objects given their id's.
+        members = [
+            Person.match(graph, p_id).first()
+            for p_id in req_json.get('Members')
+        ]
+
+        # Add all members to circle.
+        for i, p in enumerate(members):
+            if not p:
+                bad_request(
+                    'Attempted to add person with id %s who does not exist.' %
+                    req_json.get('Members')[i])
+            p.IsMember.add(c)
+
+        # Everyone in circle should 'know' each other.
+        for p1, p2 in combinations(members, 2):
+            p1.Knows.add(p2)
+
+        # Push all changes.
+        for p in members:
+            graph.push(p)
         graph.push(c)
-        return SUCCESS_CODE
+
+        return SUCCESS_JSON
+    # Thrown from Circle.from_json() when accessing properties in json.
     except KeyError as e:
-        abort(400, description='Request JSON must include key %s' % e)
+        bad_request('Request JSON must include key %s' % e)
 
 
 @app.route('/circles/api/v1.0/events', methods=['POST'])
 def post_event():
     req_json = request.get_json()
-    # Event.from_json handles throwing errors with improper JSON data.
     try:
-        e = Event.from_json(req_json, graph)
-        graph.push(e)
-
-        # Add everyone in the circle to the event.
+        # Circle must exist to create event.
         c = Circle.match(graph, req_json['circle_id']).first()
         if not c:
-            raise GraphError('Circle %s does not exist.' % req_json['circle'])
-        for person in c.HasMember:
-            person.InvitedTo.add(e)
+            bad_request('Circle %s does not exist.' % req_json['circle_id'])
 
-        return SUCCESS_CODE
-    except GraphError:
-        abort(400, description='Circle with specified ID could not be found.')
+        # Event belongs to a circle.
+        e = Event.from_json(req_json)
+        c.Scheduled.add(e)
+
+        # Invite all members of circle to event.
+        members = Circle.members_of(graph, req_json['circle_id'])
+        for p in members:
+            p.InvitedTo.add(e, properties={'attending': False})
+            graph.push(p)
+
+        graph.push(c)
+        graph.push(e)
+
+        return SUCCESS_JSON
     except KeyError as e:
-        abort(400, description='Request JSON must include key %s' % e)
+        bad_request('Request JSON must include key %s' % e)
 
 
 """
@@ -150,6 +178,10 @@ def hello():
 @app.errorhandler(404)
 def resource_not_found(e):
     return jsonify(error=str(e)), 404
+
+
+def bad_request(msg):
+    abort(400, description=msg)
 
 
 if __name__ == '__main__':
