@@ -176,8 +176,8 @@ def hello():
 
 @app.errorhandler(400)
 @app.errorhandler(404)
-def resource_not_found(e):
-    return jsonify(error=str(e)), 404
+def error(e):
+    return jsonify(error=str(e))
 
 
 def bad_request(msg):
