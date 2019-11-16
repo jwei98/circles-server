@@ -123,14 +123,16 @@ def post_circle():
                     'Attempted to add person with id %s who does not exist.' %
                     req_json.get('Members')[i])
             p.IsMember.add(c)
+            # If we don't push changes here, they'll get overwritten later.
+            graph.push(p)
 
         # Everyone in circle should 'know' each other.
         for p1, p2 in combinations(members, 2):
+            # We need to pull so we don't overwrite earlier transactions.
+            graph.pull(p1)
             p1.Knows.add(p2)
+            graph.push(p1)
 
-        # Push all changes.
-        for p in members:
-            graph.push(p)
         graph.push(c)
 
         return SUCCESS_JSON
