@@ -10,6 +10,13 @@ from py2neo import Graph
 import auth
 from Models import Person, Circle, Event
 
+KNOWS = 'knows'
+MEMBERS = 'members'
+INVITEES = 'invitees'
+CIRCLES = 'circles'
+CIRCLE = 'circle'
+EVENTS = 'events'
+
 app = Flask(__name__)
 
 # Connect to Neo4j graph.
@@ -30,46 +37,77 @@ def hello():
     return 'Hello, Circles!!'
 
 
-@app.route('/circles/api/v1.0/users/', defaults={'person_id': None})
-@app.route('/circles/api/v1.0/users/<int:person_id>', methods=['GET'])
-def get_person(person_id):
-    # Request all users.
-    if not person_id:
-        return jsonify(Person=get_all_nodes(Person))
-
-    # Request specific user.
+@app.route('/circles/api/v1.0/users/<int:person_id>/',
+           defaults={'resource': None})
+@app.route('/circles/api/v1.0/users/<int:person_id>/<resource>',
+           methods=['GET'])
+def get_person(person_id, resource):
+    # Fetch the person
     person = Person.match(graph, person_id).first()
     if not person:
-        abort(404, description="Resource not found")
-    return jsonify(Person=person.json_repr())
+        abort(404, description='Resource not found')
+    if not resource:
+        # Request specific user.
+        return jsonify(person.json_repr())
+
+    # Request specific resource associated with the person
+    if resource not in [CIRCLES, EVENTS, KNOWS]:
+        abort(404, description='Invalid resource specified')
+
+    elif resource == CIRCLES:
+        return jsonify([c.json_repr(graph) for c in person.IsMember])
+    elif resource == EVENTS:
+        return jsonify([e.json_repr(graph) for e in person.InvitedTo])
+    elif resource == KNOWS:
+        return jsonify([k.json_repr() for k in person.Knows])
 
 
-@app.route('/circles/api/v1.0/circles/', defaults={'circle_id': None})
-@app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET'])
-def get_circle(circle_id):
-    # Request all circles.
-    if not circle_id:
-        return jsonify(Circle=get_all_nodes(Circle))
+@app.route('/circles/api/v1.0/circles/<int:circle_id>/',
+           defaults={'resource': None})
+@app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>',
+           methods=['GET'])
+def get_circle(circle_id, resource):
 
-    # Request specific circle.
+    # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
-        abort(404, description="Resource not found")
-    return jsonify(Circle=circle.json_repr())
+        abort(404, description='Resource not found')
+    if not resource:
+        # Request specific circle
+        return jsonify(circle.json_repr(graph))
+
+    # Request specific resource associated with the circle
+    if resource not in [MEMBERS, EVENTS]:
+        abort(404, description='Invalid resource specified')
+    elif resource == MEMBERS:
+        return jsonify(
+            [m.json_repr() for m in Circle.members_of(graph, circle_id)])
+    elif resource == EVENTS:
+        return jsonify([e.json_repr(graph) for e in circle.Scheduled])
 
 
-@app.route('/circles/api/v1.0/events/', defaults={'event_id': None})
-@app.route('/circles/api/v1.0/events/<int:event_id>', methods=['GET'])
-def get_event(event_id):
-    # Request all events.
-    if not event_id:
-        return jsonify(Event=get_all_nodes(Event))
-
-    # Request specific event.
+@app.route('/circles/api/v1.0/events/<int:event_id>/',
+           defaults={'resource': None})
+@app.route('/circles/api/v1.0/events/<int:event_id>/<resource>',
+           methods=['GET'])
+def get_event(event_id, resource):
+    # Fetch event.
     event = Event.match(graph, event_id).first()
     if not event:
-        abort(404, description="Resource not found")
-    return jsonify(Event=event.json_repr())
+        abort(404, description='Resource not found')
+    if not resource:
+        # Request specific event.
+        return jsonify(event.json_repr(graph))
+
+        # Request specific resource associated with the circle
+    if resource not in [INVITEES, CIRCLE]:
+        abort(404, description='Invalid resource specified')
+
+    elif resource == CIRCLE:
+        return jsonify(
+            list(event.circles_of(graph, event_id))[0].json_repr(graph))
+    elif resource == INVITEES:
+        return event.json_repr(graph)['Invited']
 
 
 @app.errorhandler(404)
