@@ -107,13 +107,13 @@ POST routes.
 """
 @app.route('/circles/api/v1.0/circles', methods=['POST'])
 def post_circle():
-        """
-        Required json keys:
-        - display_name: String
-        - People: [<int>, <int>, ..., <int>]
-        Optional keys:
-        - description: String
-        """
+    """
+    Required json keys:
+    - display_name: String
+    - People: [<int>, <int>, ..., <int>]
+    Optional keys:
+    - description: String
+    """
     req_json = request.get_json()
     try:
         c = Circle.from_json(req_json)
@@ -149,16 +149,16 @@ def post_circle():
 
 @app.route('/circles/api/v1.0/events', methods=['POST'])
 def post_event():
-        """
-        Required json keys:
-        - display_name: String
-        - location: String
-        - start_datetime: <datetime>
-        - end_datetime: <datetime>
-        - Circle: <int>
-        Optional keys:
-        - description: String
-        """
+    """
+    Required json keys:
+    - display_name: String
+    - location: String
+    - start_datetime: <datetime>
+    - end_datetime: <datetime>
+    - Circle: <int>
+    Optional keys:
+    - description: String
+    """
     req_json = request.get_json()
     try:
         # Circle must exist to create event.
