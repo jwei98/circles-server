@@ -107,6 +107,23 @@ def get_event(event_id, resource):
 """
 POST routes.
 """
+@app.route('/circles/api/v1.0/users', methods=['POST'])
+def post_user():
+    """
+       Required json keys:
+       - display_name: String
+       - Email: String
+       - Photo: String
+       """
+    req_json = request.get_json()
+    try:
+        p = Person.from_json(req_json)
+        graph.push(p)
+        return SUCCESS_JSON
+    except KeyError as e:
+        bad_request('Request JSON must include key %s' % e)
+
+
 @app.route('/circles/api/v1.0/circles', methods=['POST'])
 def post_circle():
     """
