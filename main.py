@@ -107,6 +107,7 @@ def post_user():
        Required json keys:
        - display_name: String
        - Email: String
+       Optional json key:
        - Photo: String
        """
     req_json = request.get_json()
