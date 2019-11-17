@@ -5,15 +5,12 @@ import os
 import json
 from itertools import combinations
 
+import auth
 from flask import (Flask, abort, jsonify, render_template, request)
 from py2neo import Graph
 
-import auth
 from Models import Person, Circle, Event
 
-KNOWS = 'knows'
-MEMBERS = 'members'
-INVITEES = 'invitees'
 CIRCLES = 'circles'
 CIRCLE = 'circle'
 EVENTS = 'events'
