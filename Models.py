@@ -50,6 +50,7 @@ class Person(GraphObject):
         Required json keys:
         - display_name
         - email
+        Optional json:
         - photo
         """
         c = cls(json['display_name'], json['email'], json.get('photo'))

@@ -17,7 +17,6 @@ INVITEES = 'invitees'
 CIRCLES = 'circles'
 CIRCLE = 'circle'
 EVENTS = 'events'
-USERS = 'users'
 PEOPLE = 'people'
 SUCCESS_JSON = json.dumps({'success': True}), 200, {
     'ContentType': 'application/json'
@@ -45,16 +44,13 @@ def get_person(person_id, resource):
         return jsonify(person.json_repr(graph))
 
     # Request specific resource associated with the person
-    if resource not in [CIRCLES, EVENTS, PEOPLE]:
-        abort(404, description='Invalid resource specified')
-
-    elif resource == CIRCLES:
+    if resource == CIRCLES:
         return jsonify([c.json_repr(graph) for c in person.IsMember])
     elif resource == EVENTS:
         return jsonify([e.json_repr(graph) for e in person.InvitedTo])
     elif resource == PEOPLE:
         return jsonify([k.json_repr(graph) for k in person.Knows])
-
+    abort(404, description='Invalid resource specified')
 
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/',
            defaults={'resource': None})
@@ -71,13 +67,13 @@ def get_circle(circle_id, resource):
         return jsonify(circle.json_repr(graph))
 
     # Request specific resource associated with the circle
-    if resource not in [PEOPLE, EVENTS]:
-        abort(404, description='Invalid resource specified')
-    elif resource == PEOPLE:
+
+    if resource == PEOPLE:
         return jsonify(
             [m.json_repr(graph) for m in Circle.members_of(graph, circle_id)])
     elif resource == EVENTS:
         return jsonify([e.json_repr(graph) for e in circle.Scheduled])
+    abort(404, description='Invalid resource specified')
 
 
 @app.route('/circles/api/v1.0/events/<int:event_id>/',
@@ -94,14 +90,12 @@ def get_event(event_id, resource):
         return jsonify(event.json_repr(graph))
 
         # Request specific resource associated with the circle
-    if resource not in [PEOPLE, CIRCLE, CIRCLES]:
-        abort(404, description='Invalid resource specified')
-
-    elif resource in [CIRCLE, CIRCLES]:
+    if resource in [CIRCLE, CIRCLES]:
         return jsonify(
             list(event.circles_of(graph, event_id))[0].json_repr(graph))
     elif resource == PEOPLE:
         return event.json_repr(graph)['People']
+    abort(404, description='Invalid resource specified')
 
 
 """
