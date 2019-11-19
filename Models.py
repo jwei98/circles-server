@@ -82,23 +82,35 @@ class Person(GraphObject):
 class Circle(GraphObject):
     display_name = Property()
     description = Property()
+    owner = Property()
+    members_can_add = Property()
+    members_can_ping = Property()
 
     Scheduled = RelatedTo('Event', 'SCHEDULED')
 
-    def __init__(self, display_name, description):
+    def __init__(self, display_name, description, owner, members_can_add,
+                 members_can_ping):
         self.display_name = display_name
         self.description = description
+        self.owner = owner
+        self.members_can_add = members_can_add
+        self.members_can_ping = members_can_ping
 
     @classmethod
     def from_json(cls, json):
         """
         Required json keys:
-        - display_name
+        - display_name <str>
+        - owner <int>: Creator's Person ID.
         Optional keys:
-        - description
-        - HasMember
+        - description <str>
+        - members_can_add <bool>: Whether members can add people to circle.
+        - members_can_ping <bool>: Whether members can ping circle.
         """
-        c = cls(json['display_name'], json.get('description'))
+        # TODO: Check that owner is in list of members?
+        c = cls(json['display_name'], json.get('description'), json['owner'],
+                json.get('members_can_add', False),
+                json.get('members_can_ping', False))
         return c
 
     @staticmethod
@@ -114,6 +126,9 @@ class Circle(GraphObject):
         members = Circle.members_of(graph, self.__primaryvalue__)
         return {
             'id': self.__primaryvalue__,
+            'owner': self.owner,
+            'members_can_add': self.members_can_add,
+            'members_can_ping': self.members_can_ping,
             'display_name': self.display_name,
             'description': self.description,
             'People': [p.__primaryvalue__ for p in members],
