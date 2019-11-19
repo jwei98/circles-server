@@ -190,6 +190,7 @@ class Event(GraphObject):
             'location': self.location,
             'start_datetime': self.start_datetime,
             'end_datetime': self.end_datetime,
+            'created_at': self.created_at,
             'Circle': circles[0].__primaryvalue__,
             'People':
             {p.__primaryvalue__: attending
