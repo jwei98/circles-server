@@ -20,6 +20,7 @@ Define all data models.
 # graph.push(e)
 
 """
+from datetime import datetime
 from string import Template
 from py2neo.ogm import (GraphObject, Property, Related, RelatedTo, RelatedFrom)
 
@@ -142,6 +143,7 @@ class Event(GraphObject):
     location = Property()
     start_datetime = Property()
     end_datetime = Property()
+    created_at = Property()
 
     def __init__(self, display_name, description, location, start_datetime,
                  end_datetime):
@@ -150,6 +152,7 @@ class Event(GraphObject):
         self.location = location
         self.start_datetime = start_datetime
         self.end_datetime = end_datetime
+        self.created_at = datetime.utcnow().replace(microsecond=0).isoformat()
 
     @classmethod
     def from_json(cls, json):
