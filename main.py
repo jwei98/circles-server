@@ -27,27 +27,34 @@ graph = Graph(host=host, username=username, password=password, secure=True)
 """
 GET routes.
 """
-@app.route('/circles/api/v1.0/users/<int:person_id>/',
-           defaults={'resource': None})
+@app.route('/circles/api/v1.0/users/<int:person_id>', methods=['GET', 'PUT'])
 @app.route('/circles/api/v1.0/users/<int:person_id>/<resource>',
            methods=['GET'])
-def get_person(person_id, resource):
+def person(person_id, resource=None):
     # Fetch the person
     person = Person.match(graph, person_id).first()
     if not person:
         abort(404, description='Resource not found')
-    if not resource:
-        # Request specific user.
-        return jsonify(person.json_repr(graph))
+    if request.method == 'GET':
+        if not resource:
+            return jsonify(person.json_repr(graph))
+        # Request specific resource associated with the person
+        if resource == CIRCLES:
+            return jsonify([c.json_repr(graph) for c in person.IsMember])
+        elif resource == EVENTS:
+            return jsonify([e.json_repr(graph) for e in person.InvitedTo])
+        elif resource == PEOPLE:
+            return jsonify([k.json_repr(graph) for k in person.Knows])
+        abort(404, description='Invalid resource specified')
+    elif request.method == 'PUT':
+        req_json = request.get_json()
+        try:
+            person.update_from_json(req_json, graph)
+            graph.push(person)
+            return SUCCESS_JSON
+        except KeyError as e:
+            bad_request('Request JSON must include key %s' % e)
 
-    # Request specific resource associated with the person
-    if resource == CIRCLES:
-        return jsonify([c.json_repr(graph) for c in person.IsMember])
-    elif resource == EVENTS:
-        return jsonify([e.json_repr(graph) for e in person.InvitedTo])
-    elif resource == PEOPLE:
-        return jsonify([k.json_repr(graph) for k in person.Knows])
-    abort(404, description='Invalid resource specified')
 
 
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/',
