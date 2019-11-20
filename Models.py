@@ -83,17 +83,17 @@ class Person(GraphObject):
 class Circle(GraphObject):
     display_name = Property()
     description = Property()
-    owner = Property()
+    owner_id = Property()
     members_can_add = Property()
     members_can_ping = Property()
 
     Scheduled = RelatedTo('Event', 'SCHEDULED')
 
-    def __init__(self, display_name, description, owner, members_can_add,
+    def __init__(self, display_name, description, owner_id, members_can_add,
                  members_can_ping):
         self.display_name = display_name
         self.description = description
-        self.owner = owner
+        self.owner_id = owner_id
         self.members_can_add = members_can_add
         self.members_can_ping = members_can_ping
 
@@ -102,14 +102,14 @@ class Circle(GraphObject):
         """
         Required json keys:
         - display_name <str>
-        - owner <int>: Creator's Person ID.
+        - owner_id <int>: Creator's Person ID.
         Optional keys:
         - description <str>
         - members_can_add <bool>: Whether members can add people to circle.
         - members_can_ping <bool>: Whether members can ping circle.
         """
-        # TODO: Check that owner is in list of members?
-        c = cls(json['display_name'], json.get('description'), json['owner'],
+        # TODO: Check that owner_id is in list of members?
+        c = cls(json['display_name'], json.get('description'), json['owner_id'],
                 json.get('members_can_add', False),
                 json.get('members_can_ping', False))
         return c
@@ -127,7 +127,7 @@ class Circle(GraphObject):
         members = Circle.members_of(graph, self.__primaryvalue__)
         return {
             'id': self.__primaryvalue__,
-            'owner': self.owner,
+            'owner_id': self.owner_id,
             'members_can_add': self.members_can_add,
             'members_can_ping': self.members_can_ping,
             'display_name': self.display_name,
@@ -144,21 +144,23 @@ class Event(GraphObject):
     start_datetime = Property()
     end_datetime = Property()
     created_at = Property()
+    owner_id = Property()
 
     def __init__(self, display_name, description, location, start_datetime,
-                 end_datetime):
+                 end_datetime, owner_id):
         self.display_name = display_name
         self.description = description
         self.location = location
         self.start_datetime = start_datetime
         self.end_datetime = end_datetime
         self.created_at = datetime.utcnow().replace(microsecond=0).isoformat()
+        self.owner_id = owner_id
 
     @classmethod
     def from_json(cls, json):
         return cls(json['display_name'], json.get('description'),
                    json['location'], json['start_datetime'],
-                   json['end_datetime'])
+                   json['end_datetime'], json['owner_id'])
 
     @staticmethod
     def invitees_of(graph, event_id):
@@ -191,6 +193,7 @@ class Event(GraphObject):
             'start_datetime': self.start_datetime,
             'end_datetime': self.end_datetime,
             'created_at': self.created_at,
+            'owner_id': self.owner_id,
             'Circle': circles[0].__primaryvalue__,
             'People':
             {p.__primaryvalue__: attending
