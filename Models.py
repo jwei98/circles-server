@@ -48,14 +48,12 @@ class Person(GraphObject):
     def from_json(cls, json):
         """
         Required json keys:
-        - display_name
-        - email
+        - display_name: str
+        - email: str
         Optional json:
-        - photo
+        - photo: str
         """
-        c = cls(json['display_name'], json['email'], json.get('photo'))
-
-        return c
+        return cls(json['display_name'], json['email'], json.get('photo'))
 
     @staticmethod
     def attendance_of(graph, person_id):
@@ -66,6 +64,30 @@ class Person(GraphObject):
             match_type='Event')
         matches = graph.run(query).data()
         return {m['ID(match)']: m['r.attending'] for m in matches}
+
+    def update_from_json(self, json, graph):
+        """Replaces an entire node and its relationships with
+        given JSON properties."""
+        self.display_name = json['display_name']
+        self.email = json['email']
+        self.photo = json.get('photo')
+
+        # TODO: Handle cases where Person/Circle/Event doesn't exist?
+        self.Knows.clear()
+        for pid in json.get('People', []):
+            p = Person.match(graph, pid).first()
+            self.Knows.add(p)
+
+        self.IsMember.clear()
+        for cid in json.get('Circles', []):
+            c = Circle.match(graph, cid).first()
+            self.IsMember.add(c)
+
+        self.InvitedTo.clear()
+        # json format: {"Events": {"event_id": <bool>, ...}}
+        for eid, is_attending in json.get('Events', {}).items():
+            e = Event.match(graph, int(eid)).first()
+            self.InvitedTo.add(e, properties={'attending': is_attending})
 
     def json_repr(self, graph):
         return {
