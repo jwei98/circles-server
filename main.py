@@ -56,6 +56,7 @@ def person(person_id, resource=None):
             bad_request('Request JSON must include key %s' % e)
 
 
+
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/',
            defaults={'resource': None})
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>',
@@ -150,13 +151,6 @@ def post_circle():
             # If we don't push changes here, they'll get overwritten later.
             graph.push(p)
 
-        # Everyone in circle should 'know' each other.
-        for p1, p2 in combinations(members, 2):
-            # We need to pull so we don't overwrite earlier transactions.
-            graph.pull(p1)
-            p1.Knows.add(p2)
-            graph.push(p1)
-
         graph.push(c)
 
         return SUCCESS_JSON
@@ -177,6 +171,7 @@ def post_event():
     Optional keys:
     - description: String
     """
+    # TODO: Using auth, check if Person posting event is owner of Circle.
     req_json = request.get_json()
     try:
         # Circle must exist to create event.
