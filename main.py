@@ -25,7 +25,7 @@ app = Flask(__name__)
 host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username, password=password, secure=True)
 """
-GET routes.
+GET and PUT routes.
 """
 @app.route('/circles/api/v1.0/users/<int:person_id>', methods=['GET', 'PUT'])
 @app.route('/circles/api/v1.0/users/<int:person_id>/<resource>',
@@ -56,28 +56,30 @@ def person(person_id, resource=None):
             bad_request('Request JSON must include key %s' % e)
 
 
-@app.route('/circles/api/v1.0/circles/<int:circle_id>/',
-           defaults={'resource': None})
+@app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET', 'PUT'])
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>',
            methods=['GET'])
-def get_circle(circle_id, resource):
-
+def get_circle(circle_id, resource=None):
     # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
         abort(404, description='Resource not found')
-    if not resource:
-        # Request specific circle
-        return jsonify(circle.json_repr(graph))
+    if request.method == 'GET':
+        if not resource:
+            # Request specific circle
+            return jsonify(circle.json_repr(graph))
 
-    # Request specific resource associated with the circle
+        # Request specific resource associated with the circle
 
-    if resource == PEOPLE:
-        return jsonify(
-            [m.json_repr(graph) for m in Circle.members_of(graph, circle_id)])
-    elif resource == EVENTS:
-        return jsonify([e.json_repr(graph) for e in circle.Scheduled])
-    abort(404, description='Invalid resource specified')
+        if resource == PEOPLE:
+            return jsonify(
+                [m.json_repr(graph) for m in Circle.members_of(graph, circle_id)])
+        elif resource == EVENTS:
+            return jsonify([e.json_repr(graph) for e in circle.Scheduled])
+        abort(404, description='Invalid resource specified')
+    elif request.method == 'PUT':
+        req_json = request.get_json()
+        try
 
 
 @app.route('/circles/api/v1.0/events/<int:event_id>/',
