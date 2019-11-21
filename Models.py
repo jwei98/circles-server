@@ -21,13 +21,13 @@ Define all data models.
 
 """
 from datetime import datetime
-from string import Template
 from py2neo.ogm import (GraphObject, Property, Related, RelatedTo, RelatedFrom)
 
-# Given a source node's id and type, generates query to retrieve a list of all
-# nodes that connect to this source node through a particular relationship type
-# `r_type`. For convenience, this query searches edges bidirectionally.
-ONE_HOP = 'MATCH (src:$src_type)-[r:$r_type]-(match:$match_type) WHERE ID(src)=$src_id RETURN ID(match)'
+import cypher
+
+
+class GraphError(Exception):
+    pass
 
 
 # TODO: Consider __primarykey__ as email rather than implicit __id__
@@ -58,13 +58,14 @@ class Person(GraphObject):
 
     @staticmethod
     def attendance_of(graph, person_id):
-        query = Template(ONE_HOP + ', r.attending').substitute(
-            src_type='Person',
+        matches = cypher.one_hop_from_id(
+            graph,
             src_id=person_id,
-            r_type='INVITED_TO',
-            match_type='Event')
-        matches = graph.run(query).data()
-        return {m['ID(match)']: m['r.attending'] for m in matches}
+            src_type='Person',
+            rel_type='INVITED_TO',
+            dest_type='Event',
+            action_entity='ID(dest), rel.attending')
+        return {m['ID(dest)']: m['rel.attending'] for m in matches}
 
     def update_from_json(self, json, graph):
         """Replaces an entire node and its relationships with
@@ -118,10 +119,15 @@ class Circle(GraphObject):
         self.owner_id = owner_id
         self.members_can_add = members_can_add
         self.members_can_ping = members_can_ping
+        self.members = []
 
     @classmethod
-    def from_json(cls, json):
+    def from_json(cls, json, graph, push_updates=False):
         """
+        push_updates: Whether updates should be pushed to graph or not.
+                      This should be True if creating a new resource, and
+                      false if just using to create a temp object.
+
         Required json keys:
         - display_name <str>
         - owner_id <int>: Creator's Person ID.
@@ -131,19 +137,69 @@ class Circle(GraphObject):
         - members_can_ping <bool>: Whether members can ping circle.
         """
         # TODO: Check that owner_id is in list of members?
-        c = cls(json['display_name'], json.get('description'), json['owner_id'],
-                json.get('members_can_add', False),
+        c = cls(json['display_name'], json.get('description'),
+                json['owner_id'], json.get('members_can_add', False),
                 json.get('members_can_ping', False))
+
+        # Add MEMBERS to circle (safe if no 'People' field).
+        for p_id in json.get('People', []):
+            p = Person.match(graph, p_id).first()
+            if not p:
+                raise GraphError('Person with id %s does not exist.' % p_id)
+            c.members.append(p)
+
+        # Add EVENTS to circle (safe if no 'Events' field).
+        events = []
+        for e_id in json.get('Events', []):
+            e = Event.match(graph, e_id).first()
+            if not e:
+                raise GraphError('Event with id %s does not exist.' % e_id)
+            events.append(e)
+        # Do this only if all events existed.
+        for e in events:
+            c.Scheduled.add(e)
+
+        # Push all updates to remote graph.
+        if push_updates:
+            for p in c.members:
+                p.IsMember.add(c)
+                graph.push(p)
+            graph.push(c)
+
         return c
 
     @staticmethod
     def members_of(graph, circle_id):
-        query = Template(ONE_HOP).substitute(src_type='Circle',
-                                             src_id=circle_id,
-                                             r_type='IS_MEMBER',
-                                             match_type='Person')
-        matches = graph.run(query).data()
-        return [Person.match(graph, m['ID(match)']).first() for m in matches]
+        matches = cypher.one_hop_from_id(graph,
+                                         src_id=circle_id,
+                                         src_type='Circle',
+                                         rel_type='IS_MEMBER',
+                                         dest_type='Person',
+                                         action_entity='ID(dest)')
+        return [Person.match(graph, m['ID(dest)']).first() for m in matches]
+
+    def update_to(self, graph, to_circle):
+        """Updates self to have same properties as to_circle."""
+        self.display_name = to_circle.display_name
+        self.description = to_circle.description
+        self.owner_id = to_circle.owner_id
+        self.members_can_add = to_circle.members_can_add
+        self.members_can_ping = to_circle.members_can_ping
+
+        # Update members.
+        cypher.delete_relationships_from(graph, self.__primaryvalue__,
+                                         'Circle', 'IS_MEMBER', 'Person')
+        # TODO: Should deleting a circle delete all associated events?
+        cypher.delete_relationships_from(graph, self.__primaryvalue__,
+                                         'Circle', 'SCHEDULED', 'Event')
+        for p in to_circle.members:
+            p.IsMember.add(self)
+            graph.push(p)
+        for e in to_circle.Scheduled:
+            self.Scheduled.add(e)
+        graph.push(self)
+
+        return self
 
     def json_repr(self, graph):
         members = Circle.members_of(graph, self.__primaryvalue__)
@@ -186,23 +242,26 @@ class Event(GraphObject):
 
     @staticmethod
     def invitees_of(graph, event_id):
-        query = Template(ONE_HOP + ', r.attending').substitute(
-            src_type='Event',
+        matches = cypher.one_hop_from_id(
+            graph,
             src_id=event_id,
-            r_type='INVITED_TO',
-            match_type='Person')
-        matches = graph.run(query).data()
-        return [(Person.match(graph, m['ID(match)']).first(), m['r.attending'])
+            src_type='Event',
+            rel_type='INVITED_TO',
+            dest_type='Person',
+            action_entity='ID(dest), rel.attending')
+        return [(Person.match(graph,
+                              m['ID(dest)']).first(), m['rel.attending'])
                 for m in matches]
 
     @staticmethod
     def circles_of(graph, event_id):
-        query = Template(ONE_HOP).substitute(src_type='Event',
-                                             src_id=event_id,
-                                             r_type='SCHEDULED',
-                                             match_type='Circle')
-        matches = graph.run(query).data()
-        return [Circle.match(graph, m['ID(match)']).first() for m in matches]
+        matches = cypher.one_hop_from_id(graph,
+                                         src_id=event_id,
+                                         src_type='Event',
+                                         rel_type='SCHEDULED',
+                                         dest_type='Circle',
+                                         action_entity='ID(dest)')
+        return [Circle.match(graph, m['ID(dest)']).first() for m in matches]
 
     def json_repr(self, graph):
         invitees = Event.invitees_of(graph, self.__primaryvalue__)

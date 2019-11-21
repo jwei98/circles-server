@@ -9,7 +9,7 @@ import auth
 from flask import (Flask, abort, jsonify, render_template, request)
 from py2neo import Graph
 
-from Models import Person, Circle, Event
+from Models import Person, Circle, Event, GraphError
 
 CIRCLES = 'circles'
 CIRCLE = 'circle'
@@ -59,7 +59,7 @@ def person(person_id, resource=None):
 @app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET', 'PUT'])
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>',
            methods=['GET'])
-def get_circle(circle_id, resource=None):
+def circle(circle_id, resource=None):
     # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
@@ -70,16 +70,26 @@ def get_circle(circle_id, resource=None):
             return jsonify(circle.json_repr(graph))
 
         # Request specific resource associated with the circle
-
         if resource == PEOPLE:
-            return jsonify(
-                [m.json_repr(graph) for m in Circle.members_of(graph, circle_id)])
+            return jsonify([
+                m.json_repr(graph)
+                for m in Circle.members_of(graph, circle_id)
+            ])
         elif resource == EVENTS:
             return jsonify([e.json_repr(graph) for e in circle.Scheduled])
         abort(404, description='Invalid resource specified')
     elif request.method == 'PUT':
         req_json = request.get_json()
-        try
+        try:
+            c = Circle.from_json(req_json, graph, push_updates=False)
+            circle.update_to(graph, c)
+            graph.push(circle)
+            return SUCCESS_JSON
+        # KeyErrors will be thrown if any required JSON fields are not present.
+        except KeyError as e:
+            bad_request('Request JSON must include key %s' % e)
+        except GraphError as e:
+            bad_request(e)
 
 
 @app.route('/circles/api/v1.0/events/<int:event_id>/',
@@ -136,28 +146,13 @@ def post_circle():
     """
     req_json = request.get_json()
     try:
-        c = Circle.from_json(req_json)
-        # Make queries for actual Person objects given their id's.
-        members = [
-            Person.match(graph, p_id).first() for p_id in req_json['People']
-        ]
-
-        # Add all members to circle.
-        for i, p in enumerate(members):
-            if not p:
-                bad_request(
-                    'Attempted to add person with id %s who does not exist.' %
-                    req_json['People'][i])
-            p.IsMember.add(c)
-            # If we don't push changes here, they'll get overwritten later.
-            graph.push(p)
-
-        graph.push(c)
-
+        c = Circle.from_json(req_json, graph, push_updates=True)
         return SUCCESS_JSON
     # KeyErrors will be thrown if any required JSON fields are not present.
     except KeyError as e:
         bad_request('Request JSON must include key %s' % e)
+    except GraphError as e:
+        bad_request(e)
 
 
 @app.route('/circles/api/v1.0/events', methods=['POST'])
