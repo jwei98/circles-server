@@ -9,7 +9,7 @@ import auth
 from flask import (Flask, abort, jsonify, render_template, request)
 from py2neo import Graph
 
-from Models import Person, Circle, Event
+from Models import Person, Circle, Event, GraphError
 
 CIRCLES = 'circles'
 CIRCLE = 'circle'
@@ -25,53 +25,71 @@ app = Flask(__name__)
 host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username, password=password, secure=True)
 """
-GET routes.
+GET and PUT routes.
 """
-@app.route('/circles/api/v1.0/users/<int:person_id>/',
-           defaults={'resource': None})
+@app.route('/circles/api/v1.0/users/<int:person_id>', methods=['GET', 'PUT'])
 @app.route('/circles/api/v1.0/users/<int:person_id>/<resource>',
            methods=['GET'])
-def get_person(person_id, resource):
+def person(person_id, resource=None):
     # Fetch the person
     person = Person.match(graph, person_id).first()
     if not person:
         abort(404, description='Resource not found')
-    if not resource:
-        # Request specific user.
-        return jsonify(person.json_repr(graph))
+    if request.method == 'GET':
+        if not resource:
+            return jsonify(person.json_repr(graph))
+        # Request specific resource associated with the person
+        if resource == CIRCLES:
+            return jsonify([c.json_repr(graph) for c in person.IsMember])
+        elif resource == EVENTS:
+            return jsonify([e.json_repr(graph) for e in person.InvitedTo])
+        elif resource == PEOPLE:
+            return jsonify([k.json_repr(graph) for k in person.Knows])
+        abort(404, description='Invalid resource specified')
+    elif request.method == 'PUT':
+        req_json = request.get_json()
+        try:
+            person.update_from_json(req_json, graph)
+            graph.push(person)
+            return SUCCESS_JSON
+        except KeyError as e:
+            bad_request('Request JSON must include key %s' % e)
 
-    # Request specific resource associated with the person
-    if resource == CIRCLES:
-        return jsonify([c.json_repr(graph) for c in person.IsMember])
-    elif resource == EVENTS:
-        return jsonify([e.json_repr(graph) for e in person.InvitedTo])
-    elif resource == PEOPLE:
-        return jsonify([k.json_repr(graph) for k in person.Knows])
-    abort(404, description='Invalid resource specified')
 
-
-@app.route('/circles/api/v1.0/circles/<int:circle_id>/',
-           defaults={'resource': None})
+@app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET', 'PUT'])
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>',
            methods=['GET'])
-def get_circle(circle_id, resource):
-
+def circle(circle_id, resource=None):
     # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
         abort(404, description='Resource not found')
-    if not resource:
-        # Request specific circle
-        return jsonify(circle.json_repr(graph))
+    if request.method == 'GET':
+        if not resource:
+            # Request specific circle
+            return jsonify(circle.json_repr(graph))
 
-    # Request specific resource associated with the circle
-
-    if resource == PEOPLE:
-        return jsonify(
-            [m.json_repr(graph) for m in Circle.members_of(graph, circle_id)])
-    elif resource == EVENTS:
-        return jsonify([e.json_repr(graph) for e in circle.Scheduled])
-    abort(404, description='Invalid resource specified')
+        # Request specific resource associated with the circle
+        if resource == PEOPLE:
+            return jsonify([
+                m.json_repr(graph)
+                for m in Circle.members_of(graph, circle_id)
+            ])
+        elif resource == EVENTS:
+            return jsonify([e.json_repr(graph) for e in circle.Scheduled])
+        abort(404, description='Invalid resource specified')
+    elif request.method == 'PUT':
+        req_json = request.get_json()
+        try:
+            c = Circle.from_json(req_json, graph, push_updates=False)
+            circle.update_to(graph, c)
+            graph.push(circle)
+            return SUCCESS_JSON
+        # KeyErrors will be thrown if any required JSON fields are not present.
+        except KeyError as e:
+            bad_request('Request JSON must include key %s' % e)
+        except GraphError as e:
+            bad_request(e)
 
 
 @app.route('/circles/api/v1.0/events/<int:event_id>/',
@@ -128,28 +146,13 @@ def post_circle():
     """
     req_json = request.get_json()
     try:
-        c = Circle.from_json(req_json)
-        # Make queries for actual Person objects given their id's.
-        members = [
-            Person.match(graph, p_id).first() for p_id in req_json['People']
-        ]
-
-        # Add all members to circle.
-        for i, p in enumerate(members):
-            if not p:
-                bad_request(
-                    'Attempted to add person with id %s who does not exist.' %
-                    req_json['People'][i])
-            p.IsMember.add(c)
-            # If we don't push changes here, they'll get overwritten later.
-            graph.push(p)
-
-        graph.push(c)
-
+        c = Circle.from_json(req_json, graph, push_updates=True)
         return SUCCESS_JSON
     # KeyErrors will be thrown if any required JSON fields are not present.
     except KeyError as e:
         bad_request('Request JSON must include key %s' % e)
+    except GraphError as e:
+        bad_request(e)
 
 
 @app.route('/circles/api/v1.0/events', methods=['POST'])
