@@ -95,13 +95,6 @@ class Person(GraphObject):
             action_entity='ID(dest), rel.attending')
         return {m['ID(dest)']: m['rel.attending'] for m in matches}
 
-    def update_from_json(self, json, graph):
-        """Replaces an entire node and its relationships with
-        given JSON properties."""
-        self.display_name = json['display_name']
-        self.email = json['email']
-        self.photo = json.get('photo')
-
     def json_repr(self, graph):
         return {
             'id': self.__primaryvalue__,
