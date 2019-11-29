@@ -47,12 +47,10 @@ def delete_node(node, graph):
     # Delete all relationships.
     delete_rels_query = construct_query(src_type=src_type, src_id=src_id,
                                         action='DELETE', action_entity='rel')
-    print(delete_rels_query)
-
     # Delete node itself.
     delete_node_query = Template(
         'MATCH(src: $src_type) WHERE ID(src)=$src_id DELETE src'
     ).substitute(src_type=src_type, src_id=src_id)
-    print(delete_node_query)
+
     graph.run(delete_rels_query)
     graph.run(delete_node_query)
