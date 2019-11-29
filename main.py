@@ -25,9 +25,10 @@ app = Flask(__name__)
 host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username, password=password, secure=True)
 """
-GET and PUT routes.
+GET, PUT, and DELETE routes.
 """
-@app.route('/circles/api/v1.0/users/<int:person_id>', methods=['GET', 'PUT'])
+@app.route('/circles/api/v1.0/users/<int:person_id>', methods=['GET', 'PUT',
+                                                               'DELETE'])
 @app.route('/circles/api/v1.0/users/<int:person_id>/<resource>',
            methods=['GET'])
 def person(person_id, resource=None):
@@ -56,9 +57,13 @@ def person(person_id, resource=None):
             bad_request('Request JSON must include key %s' % e)
         except GraphError as e:
             bad_request(e)
+    elif request.method == 'DELETE':
+        person.delete(graph)
+        return SUCCESS_JSON
 
 
-@app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET', 'PUT'])
+@app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET', 'PUT',
+                                                                 'DELETE'])
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>',
            methods=['GET'])
 def circle(circle_id, resource=None):
@@ -91,9 +96,13 @@ def circle(circle_id, resource=None):
             bad_request('Request JSON must include key %s' % e)
         except GraphError as e:
             bad_request(e)
+    elif request.method == 'DELETE':
+        circle.delete(graph)
+        return SUCCESS_JSON
 
 
-@app.route('/circles/api/v1.0/events/<int:event_id>', methods=['GET', 'PUT'])
+@app.route('/circles/api/v1.0/events/<int:event_id>', methods=['GET', 'PUT',
+                                                               'DELETE'])
 @app.route('/circles/api/v1.0/events/<int:event_id>/<resource>', methods=['GET'])
 def event(event_id, resource=None):
     # Fetch event.
@@ -122,6 +131,9 @@ def event(event_id, resource=None):
             bad_request('Request JSON must include key %s' % e)
         except GraphError as e:
             bad_request(e)
+    elif request.method == 'DELETE':
+        event.delete(graph)
+        return SUCCESS_JSON
 
 
 """

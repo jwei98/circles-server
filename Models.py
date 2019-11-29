@@ -1,10 +1,5 @@
 """
 Define all data models.
-
-TODO: Consider how to handle INVITED_TO relationship:
-- Should this edge exist? (It currently does b/c of 'attending' property)
-   - If not, what's the alternative? Could have a property on 'SCHEDULED'
-     edge that is a list of attending Person ID's?
 """
 from datetime import datetime
 from py2neo.ogm import (GraphObject, Property, Related, RelatedTo, RelatedFrom)
@@ -83,6 +78,9 @@ class Person(GraphObject):
 
         graph.push(self)
         return self
+
+    def delete(self, graph):
+        cypher.delete_node(self, graph)
 
     @staticmethod
     def attendance_of(graph, person_id):
@@ -168,6 +166,12 @@ class Circle(GraphObject):
             graph.push(c)
 
         return c
+
+    def delete(self, graph):
+        # Delete all related events first.
+        for e in self.Scheduled:
+            cypher.delete_node(e, graph)
+        cypher.delete_node(self, graph)
 
     @staticmethod
     def members_of(graph, circle_id):
@@ -293,6 +297,9 @@ class Event(GraphObject):
 
         graph.push(self)
         return self
+
+    def delete(self, graph):
+        cypher.delete_node(self, graph)
 
     @staticmethod
     def invitees_of(graph, event_id):
