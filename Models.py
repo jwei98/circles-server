@@ -5,10 +5,6 @@ TODO: Consider how to handle INVITED_TO relationship:
 - Should this edge exist? (It currently does b/c of 'attending' property)
    - If not, what's the alternative? Could have a property on 'SCHEDULED'
      edge that is a list of attending Person ID's?
-- How to update INVITED_TO edge based on different updates to graph
-   - Someone gets added to circle --> Invite them to all events
-   - Someone gets removed from circle --> Remove InvitedTo edge to Events
-   - Circle gets deleted --> Delete all events
 """
 from datetime import datetime
 from py2neo.ogm import (GraphObject, Property, Related, RelatedTo, RelatedFrom)
