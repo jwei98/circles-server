@@ -84,6 +84,9 @@ class Person(GraphObject):
         graph.push(self)
         return self
 
+    def delete(self, graph):
+        cypher.delete_node(self, graph)
+
     @staticmethod
     def attendance_of(graph, person_id):
         matches = cypher.one_hop_from_id(
