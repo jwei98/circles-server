@@ -172,6 +172,9 @@ class Circle(GraphObject):
 
         return c
 
+    def delete(self, graph):
+        cypher.delete_node(self, graph)
+
     @staticmethod
     def members_of(graph, circle_id):
         matches = cypher.one_hop_from_id(graph,
@@ -296,6 +299,9 @@ class Event(GraphObject):
 
         graph.push(self)
         return self
+
+    def delete(self, graph):
+        cypher.delete_node(self, graph)
 
     @staticmethod
     def invitees_of(graph, event_id):
