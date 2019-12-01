@@ -97,7 +97,7 @@ def circle(circle_id, resource=None):
 
     # Determine if user that is requesting the circle has privilege to see it
     if req_user.__primaryvalue__ not in circle.members_of(graph, circle.__primaryvalue__):
-        abort(403, description='Unauthorized circle request')
+        abort(403, description='Unauthorized circle get')
     owner_req = req_user.__primaryvalue__ == circle.owner_id
     member_req = (req_user.__primaryvalue__ in circle.members_of(graph, circle.__primaryvalue__)) or owner_req
 
