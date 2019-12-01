@@ -3,6 +3,7 @@ Main driver for Flask server.
 """
 import os
 import json
+import sys
 from itertools import combinations
 
 import auth
@@ -38,7 +39,7 @@ def person(person_id, resource=None):
         abort(404, description='Resource not found')
     if request.method == 'GET':
         req_user = request.headers.get['Authorization']
-        print(req_user)
+        print(req_user, file = sys.stderr)
         if not resource:
             return jsonify(person.json_repr(graph))
         # Request specific resource associated with the person
