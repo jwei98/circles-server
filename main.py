@@ -36,7 +36,7 @@ def person(person_id, resource=None):
 
     # Fetch the person making the request
     req_token = request.headers.get('Authorization')
-    req_user = matcher.match("Person", email=req_token)
+    req_user = matcher.match("Person", email=req_token).first()
     # Person.match(graph).where('_.email = {}'.format(req_token)).first()
 
     # Fetch the person requested
