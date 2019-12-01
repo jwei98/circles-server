@@ -24,7 +24,6 @@ app = Flask(__name__)
 # Connect to Neo4j graph.
 host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username, password=password, secure=True)
-matcher = NodeMatcher(graph)
 """
 GET, PUT, and DELETE routes.
 """
