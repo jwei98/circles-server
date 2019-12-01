@@ -38,8 +38,9 @@ def person(person_id, resource=None):
     if not person:
         abort(404, description='Resource not found')
     if request.method == 'GET':
-        #req_user = request.headers.get['Authorization']
-        #print(req_user, file = sys.stderr)
+        req_user = request.headers.get('Authorization')
+        if req_user != 'rt125@duke.edu':
+            abort(403, description='unauthorized access')
         if not resource:
             return jsonify(person.json_repr(graph))
         # Request specific resource associated with the person
