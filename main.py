@@ -47,7 +47,7 @@ def person(person_id, resource=None):
             if self_req:
                 return jsonify(person.json_repr(graph))
             else:
-                return jsonify(person.json_repr_lim(graph))
+                return jsonify(person.json_repr_lim())
         # Request specific resource associated with the person if they are authorized
         if self_req:
             if resource == CIRCLES:
@@ -55,7 +55,7 @@ def person(person_id, resource=None):
             elif resource == EVENTS:
                 return jsonify([e.json_repr(graph) for e in person.InvitedTo])
             elif resource == PEOPLE:
-                return jsonify([k.json_repr_lim(graph) for k in person.Knows])
+                return jsonify([k.json_repr_lim() for k in person.Knows])
             abort(404, description='Invalid resource specified')
         abort(403, description='Unauthorized resource access')
 
@@ -97,7 +97,7 @@ def circle(circle_id, resource=None):
         # Request specific resource associated with the circle
         if resource == PEOPLE:
             return jsonify([
-                m.json_repr_lim(graph)
+                m.json_repr_lim()
                 for m in Circle.members_of(graph, circle_id)
             ])
         elif resource == EVENTS:
