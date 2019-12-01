@@ -278,6 +278,11 @@ Other.
 """
 @app.route('/')
 def hello():
+    # Fetch the person making the request
+    req_token = request.headers.get('Authorization')
+    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+    return str(req_user.__primaryvalue__)
+
     return 'Hello, Circles!!'
 
 
