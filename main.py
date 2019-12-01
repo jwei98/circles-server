@@ -96,7 +96,7 @@ def circle(circle_id, resource=None):
 
     # Determine if user that is requesting the circle has privilege to see it
     owner_req = req_user.__primaryvalue__ == circle.owner_id
-    member_req = circle_id in req_user.IsMember
+    member_req = circle_id in list(c.__primaryvalue__ for c in req_user.IsMember)
     if not member_req:
         abort(403, description='Unauthorized circle get')
 
@@ -154,7 +154,8 @@ def event(event_id, resource=None):
     req_token = request.headers.get('Authorization')
     req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
     owner_req = req_user.__primaryvalue__ == event.owner_id
-    guest_req = event_id in req_user.InvitedTo
+    guest_req = event_id in list(e.__primaryvalue__ for e in req_user.InvitedTo)
+
 
     if request.method == 'GET':
         if owner_req or guest_req:  # access is authorized
@@ -259,7 +260,8 @@ def post_event():
     if not circle:
         abort(404, description='Invalid Circle Specified')
     owner_req = req_user.__primaryvalue__ == circle.owner_id
-    member_valid_ping = (circle.__primaryvalue__ in req_user.IsMember and circle.members_can_ping)
+    member_req = circle.__primaryvalue__ in list(c.__primaryvalue__ for c in req_user.IsMember)
+    member_valid_ping = owner_req or (member_req and circle.members_can_ping)
     if owner_req or member_valid_ping:
         try:
             e = Event.from_json(req_json, graph, push_updates=True)
