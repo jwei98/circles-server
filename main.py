@@ -7,7 +7,7 @@ from itertools import combinations
 
 import auth
 from flask import (Flask, abort, jsonify, render_template, request)
-from py2neo import Graph, NodeMatcher
+from py2neo import Graph
 
 from Models import Person, Circle, Event, GraphError
 
@@ -24,7 +24,6 @@ app = Flask(__name__)
 # Connect to Neo4j graph.
 host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username, password=password, secure=True)
-matcher = NodeMatcher(graph)
 """
 GET, PUT, and DELETE routes.
 """
@@ -33,42 +32,52 @@ GET, PUT, and DELETE routes.
 @app.route('/circles/api/v1.0/users/<int:person_id>/<resource>',
            methods=['GET'])
 def person(person_id, resource=None):
-
     # Fetch the person making the request
     req_token = request.headers.get('Authorization')
-    req_user = list(Person.match(graph).where('_.email = {}'.format(req_token)))[0]
-
+    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
 
     # Fetch the person requested
     person = Person.match(graph, person_id).first()
     if not person:
         abort(404, description='Resource not found')
+    # Determine if a user is requesting their own data
+    self_req = req_user.__primaryvalue__ == person.__primaryvalue__
     if request.method == 'GET':
         if not resource:
-            return jsonify(person.json_repr(graph))
-        # Request specific resource associated with the person
-        if 1622 == person.__primaryvalue__:
+            if self_req:
+                return jsonify(person.json_repr(graph))
+            else:
+                return jsonify(person.json_repr_lim(graph))
+        # Request specific resource associated with the person if they are authorized
+        if self_req:
             if resource == CIRCLES:
                 return jsonify([c.json_repr(graph) for c in person.IsMember])
             elif resource == EVENTS:
                 return jsonify([e.json_repr(graph) for e in person.InvitedTo])
             elif resource == PEOPLE:
-                return jsonify([k.json_repr(graph) for k in person.Knows])
+                return jsonify([k.json_repr_lim(graph) for k in person.Knows])
             abort(404, description='Invalid resource specified')
-        abort(403, description='Unauthorized Resource Access')
+        abort(403, description='Unauthorized resource access')
+
     elif request.method == 'PUT':
-        req_json = request.get_json()
-        try:
-            p = Person.from_json(req_json, graph, push_updates=False)
-            person.update_to(graph, p)
-            return SUCCESS_JSON
-        except KeyError as e:
-            bad_request('Request JSON must include key %s' % e)
-        except GraphError as e:
-            bad_request(e)
+        if self_req:
+            req_json = request.get_json()
+            try:
+                p = Person.from_json(req_json, graph, push_updates=False)
+                person.update_to(graph, p)
+                return SUCCESS_JSON
+            except KeyError as e:
+                bad_request('Request JSON must include key %s' % e)
+            except GraphError as e:
+                bad_request(e)
+        abort(403, description='Unauthorized modification request')
+
     elif request.method == 'DELETE':
-        person.delete(graph)
-        return SUCCESS_JSON
+        if self_req:
+            person.delete(graph)
+            return SUCCESS_JSON
+        abort(403, description='Unauthorized deletion request')
+
 
 
 @app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET', 'PUT',
@@ -88,7 +97,7 @@ def circle(circle_id, resource=None):
         # Request specific resource associated with the circle
         if resource == PEOPLE:
             return jsonify([
-                m.json_repr(graph)
+                m.json_repr_lim(graph)
                 for m in Circle.members_of(graph, circle_id)
             ])
         elif resource == EVENTS:
@@ -123,12 +132,12 @@ def event(event_id, resource=None):
             # Request specific event.
             return jsonify(event.json_repr(graph))
 
-            # Request specific resource associated with the circle
+            # Request specific resource associated with the event
         if resource in [CIRCLE, CIRCLES]:
             return jsonify(
                 list(event.circles_of(graph, event_id))[0].json_repr(graph))
         elif resource == PEOPLE:
-            return event.json_repr(graph)['People']
+            return event.json_repr_lim(graph)['People']
         abort(404, description='Invalid resource specified')
     elif request.method == 'PUT':
         try:
