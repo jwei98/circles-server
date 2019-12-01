@@ -337,6 +337,7 @@ class Event(GraphObject):
             'created_at': self.created_at,
             'owner_id': self.owner_id,
             'Circle': circles[0].__primaryvalue__,
+            'circle_name': circles[0].display_name,
             'People':
             {p.__primaryvalue__: attending
              for p, attending in invitees}
