@@ -259,7 +259,7 @@ def post_event():
     if not circle:
         abort(404, description='Invalid Circle Specified')
     owner_req = req_user.__primaryvalue__ == circle.owner_id
-    member_valid_ping = (req_user.__primaryvalue__ in circle.members_of(graph, circle.__primaryvalue__)) and circle.members_can_add
+    member_valid_ping = (circle.__primaryvalue__ in req_user.IsMember and circle.members_can_ping)
     if owner_req or member_valid_ping:
         try:
             e = Event.from_json(req_json, graph, push_updates=True)
