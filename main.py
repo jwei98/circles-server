@@ -7,7 +7,7 @@ from itertools import combinations
 
 import auth
 from flask import (Flask, abort, jsonify, render_template, request)
-from py2neo import Graph
+from py2neo import Graph, NodeMatcher
 
 from Models import Person, Circle, Event, GraphError
 
@@ -24,6 +24,7 @@ app = Flask(__name__)
 # Connect to Neo4j graph.
 host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username, password=password, secure=True)
+matcher = NodeMatcher(graph)
 """
 GET, PUT, and DELETE routes.
 """
@@ -33,11 +34,12 @@ GET, PUT, and DELETE routes.
            methods=['GET'])
 def person(person_id, resource=None):
 
-    #Fetch the person making the request
+    # Fetch the person making the request
     req_token = request.headers.get('Authorization')
-    req_user = Person.match(graph).where('_.email = {}'.format(req_token)).first()
+    req_user = matcher.match("Person", email=req_token)
+    # Person.match(graph).where('_.email = {}'.format(req_token)).first()
 
-    #Fetch the person requested
+    # Fetch the person requested
     person = Person.match(graph, person_id).first()
     if not person:
         abort(404, description='Resource not found')
