@@ -7,7 +7,7 @@ from itertools import combinations
 
 import auth
 from flask import (Flask, abort, jsonify, render_template, request)
-from py2neo import Graph, NodeMatcher
+from py2neo import Graph
 
 from Models import Person, Circle, Event, GraphError
 
@@ -33,24 +33,28 @@ GET, PUT, and DELETE routes.
 @app.route('/circles/api/v1.0/users/<int:person_id>/<resource>',
            methods=['GET'])
 def person(person_id, resource=None):
-    # Fetch the person
+
+    #Fetch the person making the request
+    req_token = request.headers.get('Authorization')
+    req_user = Person.match(graph).where("_.email" == req_token).first()
+
+    #Fetch the person requested
     person = Person.match(graph, person_id).first()
     if not person:
         abort(404, description='Resource not found')
     if request.method == 'GET':
-        req_user = request.headers.get('Authorization')
-        requestor = matcher.match("Person", email=req_user).first()
-        return jsonify(requestor)
         if not resource:
             return jsonify(person.json_repr(graph))
         # Request specific resource associated with the person
-        if resource == CIRCLES:
-            return jsonify([c.json_repr(graph) for c in person.IsMember])
-        elif resource == EVENTS:
-            return jsonify([e.json_repr(graph) for e in person.InvitedTo])
-        elif resource == PEOPLE:
-            return jsonify([k.json_repr(graph) for k in person.Knows])
-        abort(404, description='Invalid resource specified')
+        if req_user == person:
+            if resource == CIRCLES:
+                return jsonify([c.json_repr(graph) for c in person.IsMember])
+            elif resource == EVENTS:
+                return jsonify([e.json_repr(graph) for e in person.InvitedTo])
+            elif resource == PEOPLE:
+                return jsonify([k.json_repr(graph) for k in person.Knows])
+            abort(404, description='Invalid resource specified')
+        abort(403, description='Unauthorized Resource Access')
     elif request.method == 'PUT':
         req_json = request.get_json()
         try:
