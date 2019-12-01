@@ -104,6 +104,14 @@ class Person(GraphObject):
             'Events': Person.attendance_of(graph, self.__primaryvalue__)
         }
 
+    def json_repr_lim(self):
+        return{
+            'id': self.__primaryvalue__,
+            'display_name': self.display_name,
+            'photo': self.photo,
+        }
+
+
 
 class Circle(GraphObject):
     display_name = Property()
