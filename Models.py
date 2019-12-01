@@ -104,7 +104,7 @@ class Person(GraphObject):
             'Events': Person.attendance_of(graph, self.__primaryvalue__)
         }
 
-    def json_repr_lim(self):
+    def json_repr_lim(self, graph):
         return{
             'id': self.__primaryvalue__,
             'display_name': self.display_name,
