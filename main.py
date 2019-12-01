@@ -35,7 +35,7 @@ def person(person_id, resource=None):
 
     #Fetch the person making the request
     req_token = request.headers.get('Authorization')
-    req_user = Person.match(graph).where("_.email = {}".format(req_token))
+    req_user = Person.match(graph).where("_.email = {}".format(req_token)).first()
 
     #Fetch the person requested
     person = Person.match(graph, person_id).first()
@@ -45,7 +45,7 @@ def person(person_id, resource=None):
         if not resource:
             return jsonify(person.json_repr(graph))
         # Request specific resource associated with the person
-        if req_user == person:
+        if req_user.__primaryvalue__ == person.__primaryvalue__:
             if resource == CIRCLES:
                 return jsonify([c.json_repr(graph) for c in person.IsMember])
             elif resource == EVENTS:

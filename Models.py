@@ -105,6 +105,7 @@ class Person(GraphObject):
         }
 
 
+
 class Circle(GraphObject):
     display_name = Property()
     description = Property()
