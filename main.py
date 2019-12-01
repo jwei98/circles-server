@@ -96,26 +96,26 @@ def circle(circle_id, resource=None):
         abort(404, description='Resource not found')\
 
     # Determine if user that is requesting the circle has privilege to see it
-    if req_user.__primaryvalue__ not in circle.members:
+    if req_user.__primaryvalue__ not in circle.members_of(graph, circle.__primaryvalue__):
         abort(403, description='Unauthorized circle request')
-    member_req = req_user.__primaryvalue__ in circle.members
+    member_req = req_user.__primaryvalue__ in circle.members_of(graph, circle.__primaryvalue__)
     owner_req = req_user.__primaryvalue__ == circle.owner_id
 
     if request.method == 'GET':
-        if not resource:
-            # Request specific circle
-            return jsonify(circle.json_repr(graph))
-
-        # Request specific resource associated with the circle
-        if resource == PEOPLE:
-            return jsonify([
-                m.json_repr_lim()
-                for m in Circle.members_of(graph, circle_id)
-            ])
-        elif resource == EVENTS:
-            return jsonify([e.json_repr(graph) for e in circle.Scheduled])
-        abort(404, description='Invalid resource specified')
-
+        if member_req:
+            if not resource:
+                # Request specific circle
+                return jsonify(circle.json_repr(graph))
+            # Request specific resource associated with the circle
+            if resource == PEOPLE:
+                return jsonify([
+                    m.json_repr_lim()
+                    for m in Circle.members_of(graph, circle_id)
+                ])
+            elif resource == EVENTS:
+                return jsonify([e.json_repr(graph) for e in circle.Scheduled])
+            abort(404, description='Invalid resource specified')
+        abort(403, description='Unauthorized circle request')
     elif request.method == 'PUT':
         req_json = request.get_json()
         try:
@@ -155,7 +155,7 @@ def event(event_id, resource=None):
     req_token = request.headers.get('Authorization')
     req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
     owner_req = req_user.__primaryvalue__ == event.owner_id
-    guest_req = req_user.__primaryvalue__ in event.invitees
+    guest_req = req_user.__primaryvalue__ in event.invitees_of(graph, event.__primaryvalue__)
 
     if request.method == 'GET':
         if owner_req or guest_req:  # access is authorized
@@ -220,6 +220,11 @@ def post_circle():
     - description: String
     """
     req_json = request.get_json()
+
+    # Fetch the person making the request (not necessary but could help if frontend is currently providing this)
+    req_token = request.headers.get('Authorization')
+    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+
     try:
         c = Circle.from_json(req_json, graph, push_updates=True)
         return SUCCESS_JSON
@@ -255,7 +260,7 @@ def post_event():
     if not circle:
         abort(404, description='Invalid Circle Specified')
     owner_req = req_user.__primaryvalue__ == circle.owner_id
-    member_valid_ping = (req_user.__primaryvalue__ in circle.members) and circle.members_can_add
+    member_valid_ping = (req_user.__primaryvalue__ in circle.members_of(graph, circle.__primaryvalue__)) and circle.members_can_add
     if owner_req or member_valid_ping:
         try:
             e = Event.from_json(req_json, graph, push_updates=True)
