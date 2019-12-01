@@ -137,7 +137,7 @@ def event(event_id, resource=None):
             return jsonify(
                 list(event.circles_of(graph, event_id))[0].json_repr(graph))
         elif resource == PEOPLE:
-            return event.json_repr_lim(graph)['People']
+            return event.json_repr(graph)['People']
         abort(404, description='Invalid resource specified')
     elif request.method == 'PUT':
         try:
