@@ -96,7 +96,7 @@ def circle(circle_id, resource=None):
 
     # Determine if user that is requesting the circle has privilege to see it
     owner_req = req_user.__primaryvalue__ == circle.owner_id
-    member_req = (req_user.__primaryvalue__ in circle.members_of(graph, circle.__primaryvalue__)) or owner_req
+    member_req = circle_id in req_user.IsMember
     if not member_req:
         abort(403, description='Unauthorized circle get')
 
@@ -154,7 +154,7 @@ def event(event_id, resource=None):
     req_token = request.headers.get('Authorization')
     req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
     owner_req = req_user.__primaryvalue__ == event.owner_id
-    guest_req = (req_user.__primaryvalue__ in event.invitees_of(graph, event.__primaryvalue__)) or owner_req
+    guest_req = event_id in req_user.InvitedTo
 
     if request.method == 'GET':
         if owner_req or guest_req:  # access is authorized
