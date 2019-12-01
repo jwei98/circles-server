@@ -85,10 +85,22 @@ def person(person_id, resource=None):
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>',
            methods=['GET'])
 def circle(circle_id, resource=None):
+    # Fetch the person making the request
+    req_token = request.headers.get('Authorization')
+    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+
+
     # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
-        abort(404, description='Resource not found')
+        abort(404, description='Resource not found')\
+
+    # Determine if user that is requesting the circle has privilege to see it
+    if req_user.__primaryvalue__ not in circle.members:
+        abort(403, description='Unauthorized circle request')
+    member_req = req_user.__primaryvalue__ in circle.members
+    owner_req = req_user.__primaryvalue__ == circle.owner_id
+
     if request.method == 'GET':
         if not resource:
             # Request specific circle
@@ -103,18 +115,30 @@ def circle(circle_id, resource=None):
         elif resource == EVENTS:
             return jsonify([e.json_repr(graph) for e in circle.Scheduled])
         abort(404, description='Invalid resource specified')
+
     elif request.method == 'PUT':
         req_json = request.get_json()
         try:
             c = Circle.from_json(req_json, graph, push_updates=False)
-            circle.update_to(graph, c)
-            return SUCCESS_JSON
+
+            # TODO: Fix this logic/make it more granular depending on the type of update
+            if owner_req or \
+                    (member_req and c.members_can_add) or \
+                    (member_req and c.members_can_ping):
+                circle.update_to(graph, c)
+                return SUCCESS_JSON
+            abort(403, 'Unauthorized update request')
+
         # KeyErrors will be thrown if any required JSON fields are not present.
         except KeyError as e:
             bad_request('Request JSON must include key %s' % e)
         except GraphError as e:
             bad_request(e)
+
     elif request.method == 'DELETE':
+        if req_user.__primaryvalue__ is not circle.owner_id:
+            abort(403, description='Unauthorized circle request')
+        # Only the owner may delete a circle
         circle.delete(graph)
         return SUCCESS_JSON
 
@@ -127,31 +151,43 @@ def event(event_id, resource=None):
     event = Event.match(graph, event_id).first()
     if not event:
         abort(404, description='Resource not found')
-    if request.method == 'GET':
-        if not resource:
-            # Request specific event.
-            return jsonify(event.json_repr(graph))
+    # Fetch the person making the request
+    req_token = request.headers.get('Authorization')
+    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+    owner_req = req_user.__primaryvalue__ == event.owner_id
+    guest_req = req_user.__primaryvalue__ in event.invitees
 
-            # Request specific resource associated with the event
-        if resource in [CIRCLE, CIRCLES]:
-            return jsonify(
-                list(event.circles_of(graph, event_id))[0].json_repr(graph))
-        elif resource == PEOPLE:
-            return event.json_repr(graph)['People']
-        abort(404, description='Invalid resource specified')
+    if request.method == 'GET':
+        if owner_req or guest_req:  # access is authorized
+            if not resource:
+                # Request specific event.
+                    return jsonify(event.json_repr(graph))
+                # Request specific resource associated with the event
+            if resource in [CIRCLE, CIRCLES]:
+                return jsonify(
+                    list(event.circles_of(graph, event_id))[0].json_repr(graph))
+            elif resource == PEOPLE:
+                return event.json_repr(graph)['People']
+            abort(404, description='Invalid resource specified')
+        abort(403, description='Unauthorized event update')
+
     elif request.method == 'PUT':
-        try:
-            req_json = request.get_json()
-            e = Event.from_json(req_json, graph, push_updates=False)
-            event.update_to(graph, e)
-            return SUCCESS_JSON
-        except KeyError as e:
-            bad_request('Request JSON must include key %s' % e)
-        except GraphError as e:
-            bad_request(e)
+        if owner_req or guest_req:  # access is authorized
+            try:
+                req_json = request.get_json()
+                e = Event.from_json(req_json, graph, push_updates=False)
+                event.update_to(graph, e)
+                return SUCCESS_JSON
+            except KeyError as e:
+                bad_request('Request JSON must include key %s' % e)
+            except GraphError as e:
+                bad_request(e)
+        abort(403, description='Unauthorized event request')
     elif request.method == 'DELETE':
-        event.delete(graph)
-        return SUCCESS_JSON
+        if owner_req:
+            event.delete(graph)
+            return SUCCESS_JSON
+        abort(403, description='Unauthorized event deletion request')
 
 
 """
@@ -207,14 +243,28 @@ def post_event():
     - description: String
     """
     # TODO: Using auth, check if Person posting event is owner of Circle.
+
     req_json = request.get_json()
-    try:
-        e = Event.from_json(req_json, graph, push_updates=True)
-        return SUCCESS_JSON
-    except KeyError as e:
-        bad_request('Request JSON must include key %s' % e)
-    except GraphError as e:
-        bad_request(e)
+
+    # Fetch the person making the request
+    req_token = request.headers.get('Authorization')
+    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+
+    # Fetch the circle that the request is associated with
+    circle = Circle.match(graph, req_json.get('Circle')).first()
+    if not circle:
+        abort(404, description='Invalid Circle Specified')
+    owner_req = req_user.__primaryvalue__ == circle.owner_id
+    member_valid_ping = (req_user.__primaryvalue__ in circle.members) and circle.members_can_add
+    if owner_req or member_valid_ping:
+        try:
+            e = Event.from_json(req_json, graph, push_updates=True)
+            return SUCCESS_JSON
+        except KeyError as e:
+            bad_request('Request JSON must include key %s' % e)
+        except GraphError as e:
+            bad_request(e)
+    abort(403, description='Insufficient Permissions')
 
 
 """
