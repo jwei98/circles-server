@@ -3,12 +3,11 @@ Main driver for Flask server.
 """
 import os
 import json
-import sys
 from itertools import combinations
 
 import auth
 from flask import (Flask, abort, jsonify, render_template, request)
-from py2neo import Graph
+from py2neo import Graph, NodeMatcher
 
 from Models import Person, Circle, Event, GraphError
 
@@ -25,6 +24,7 @@ app = Flask(__name__)
 # Connect to Neo4j graph.
 host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username, password=password, secure=True)
+matcher = NodeMatcher(graph)
 """
 GET, PUT, and DELETE routes.
 """
@@ -39,8 +39,8 @@ def person(person_id, resource=None):
         abort(404, description='Resource not found')
     if request.method == 'GET':
         req_user = request.headers.get('Authorization')
-        if req_user != 'rt125@duke.edu':
-            abort(403, description='unauthorized access')
+        requestor = matcher.match("Person", email=req_user).first()
+        return jsonify(requestor)
         if not resource:
             return jsonify(person.json_repr(graph))
         # Request specific resource associated with the person
