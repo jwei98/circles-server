@@ -92,8 +92,7 @@ def circle(circle_id, resource=None):
     # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
-        abort(404, description='Resource not found')\
-
+        abort(404, description='Resource not found')
     # Determine if user that is requesting the circle has privilege to see it
     owner_req = req_user.__primaryvalue__ == circle.owner_id
     member_req = circle_id in list(c.__primaryvalue__ for c in req_user.IsMember)
@@ -135,7 +134,7 @@ def circle(circle_id, resource=None):
             bad_request(e)
 
     elif request.method == 'DELETE':
-        if req_user.__primaryvalue__ is not circle.owner_id:
+        if owner_req:
             abort(403, description='Unauthorized circle request')
         # Only the owner may delete a circle
         circle.delete(graph)
@@ -278,12 +277,15 @@ Other.
 """
 @app.route('/')
 def hello():
+    return 'Hello, Circles!!'
+
+
+@app.route('/getid')
+def getid():
     # Fetch the person making the request
     req_token = request.headers.get('Authorization')
     req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
     return str(req_user.__primaryvalue__)
-
-    return 'Hello, Circles!!'
 
 
 @app.errorhandler(400)
