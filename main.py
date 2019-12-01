@@ -89,18 +89,16 @@ def circle(circle_id, resource=None):
     req_token = request.headers.get('Authorization')
     req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
 
-
     # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
         abort(404, description='Resource not found')\
 
     # Determine if user that is requesting the circle has privilege to see it
-    if req_user.__primaryvalue__ not in circle.members_of(graph, circle.__primaryvalue__):
-        abort(403, description='Unauthorized circle get')
     owner_req = req_user.__primaryvalue__ == circle.owner_id
     member_req = (req_user.__primaryvalue__ in circle.members_of(graph, circle.__primaryvalue__)) or owner_req
-
+    if not member_req:
+        abort(403, description='Unauthorized circle get')
 
     if request.method == 'GET':
         if member_req:
