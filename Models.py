@@ -1,6 +1,7 @@
 """
 Define all data models.
 """
+from collections import defaultdict
 from datetime import datetime
 from py2neo.ogm import (GraphObject, Property, Related, RelatedTo, RelatedFrom)
 
@@ -94,14 +95,18 @@ class Person(GraphObject):
         return {m['ID(dest)']: m['rel.attending'] for m in matches}
 
     def json_repr(self, graph):
+        events = defaultdict(dict)
+        for e in self.InvitedTo:
+            is_attending = self.InvitedTo.get(e, 'attending')
+            events[str(e.circle_id)][str(e.__primaryvalue__)] = is_attending
         return {
             'id': self.__primaryvalue__,
             'display_name': self.display_name,
             'email': self.email,
             'photo': self.photo,
             'People': [p.__primaryvalue__ for p in list(self.Knows)],
-            'Circles': [p.__primaryvalue__ for p in list(self.IsMember)],
-            'Events': Person.attendance_of(graph, self.__primaryvalue__)
+            'Circles': [c.__primaryvalue__ for c in list(self.IsMember)],
+            'Events': events
         }
 
     def json_repr_lim(self):
@@ -110,7 +115,6 @@ class Person(GraphObject):
             'display_name': self.display_name,
             'photo': self.photo,
         }
-
 
 
 class Circle(GraphObject):
@@ -234,9 +238,10 @@ class Event(GraphObject):
     end_datetime = Property()
     created_at = Property()
     owner_id = Property()
+    circle_id = Property()
 
     def __init__(self, display_name, description, location, start_datetime,
-                 end_datetime, owner_id):
+                 end_datetime, owner_id, circle_id):
         self.display_name = display_name
         self.description = description
         self.location = location
@@ -244,15 +249,23 @@ class Event(GraphObject):
         self.end_datetime = end_datetime
         self.created_at = datetime.utcnow().replace(microsecond=0).isoformat()
         self.owner_id = owner_id
+        self.circle_id = circle_id
 
         self.invitees = []  # [(p_id, boolean)...]
         self.circle = None
 
     @classmethod
     def from_json(cls, json, graph, push_updates=False):
+        # Specified Circle must exist.
+        c_id = json['Circle']
+        c = Circle.match(graph, c_id).first()
+        if not c:
+            raise GraphError('Event with id %s does not exist.' % c_id)
+
         e = cls(json['display_name'], json.get('description'),
                 json['location'], json['start_datetime'],
-                json['end_datetime'], json['owner_id'])
+                json['end_datetime'], json['owner_id'], c_id)
+        e.circle = c
 
         # Add invitees to circle (safe if no 'People' field).
         for p_id, is_attending in json.get('People', {}).items():
@@ -262,14 +275,7 @@ class Event(GraphObject):
                 raise GraphError('Person with id %s does not exist.' % p_id)
             e.invitees.append((p, is_attending))
 
-        # Add Circle to event.
-        c_id = json['Circle']
-        c = Circle.match(graph, c_id).first()
-        if not c:
-            raise GraphError('Event with id %s does not exist.' % c_id)
-        e.circle = c
-
-        # Push all related updates to remote graph, besides new event itself.
+        # Push all related updates to remote graph.
         if push_updates:
             for p, is_attending in e.invitees:
                 p.InvitedTo.add(e, {'attending': is_attending})
@@ -289,6 +295,7 @@ class Event(GraphObject):
         self.end_datetime = to_event.end_datetime
         self.created_at = to_event.created_at
         self.owner_id = to_event.owner_id
+        self.circle_id = to_event.circle_id
 
         # Update members.
         cypher.delete_relationships_from(graph, self.__primaryvalue__,
