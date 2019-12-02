@@ -25,7 +25,7 @@ app = Flask(__name__)
 host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username, password=password, secure=True)
 """
-GET, PUT, and DELETE routes.
+GET, PUT, and DELETE routes
 """
 @app.route('/circles/api/v1.0/users/<int:person_id>', methods=['GET', 'PUT',
                                                                'DELETE'])
