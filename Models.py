@@ -50,9 +50,10 @@ class Person(GraphObject):
                 raise GraphError('Person with id %s does not exist.' % c_id)
             p.IsMember.add(c)
 
-        for eid, is_attending in json.get('Events', {}).items():
-            e = Event.match(graph, int(eid)).first()
-            p.InvitedTo.add(e, properties={'attending': is_attending})
+        for c_id, events in json.get('Events', {}).items():
+            for e_id, is_attending in events.items():
+                e = Event.match(graph, int(e_id)).first()
+                p.InvitedTo.add(e, properties={'attending': is_attending})
 
         if push_updates:
             graph.push(p)
