@@ -25,93 +25,168 @@ app = Flask(__name__)
 host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username, password=password, secure=True)
 """
-GET and PUT routes.
+GET, PUT, and DELETE routes.
 """
-@app.route('/circles/api/v1.0/users/<int:person_id>', methods=['GET', 'PUT'])
+@app.route('/circles/api/v1.0/users/<int:person_id>', methods=['GET', 'PUT',
+                                                               'DELETE'])
 @app.route('/circles/api/v1.0/users/<int:person_id>/<resource>',
            methods=['GET'])
 def person(person_id, resource=None):
-    # Fetch the person
+    # Fetch the person making the request
+    req_token = request.headers.get('Authorization')
+    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+
+    # Fetch the person requested
     person = Person.match(graph, person_id).first()
     if not person:
         abort(404, description='Resource not found')
+    # Determine if a user is requesting their own data
+    self_req = req_user.__primaryvalue__ == person.__primaryvalue__
     if request.method == 'GET':
         if not resource:
-            return jsonify(person.json_repr(graph))
-        # Request specific resource associated with the person
-        if resource == CIRCLES:
-            return jsonify([c.json_repr(graph) for c in person.IsMember])
-        elif resource == EVENTS:
-            return jsonify([e.json_repr(graph) for e in person.InvitedTo])
-        elif resource == PEOPLE:
-            return jsonify([k.json_repr(graph) for k in person.Knows])
-        abort(404, description='Invalid resource specified')
+            if self_req:
+                return jsonify(person.json_repr(graph))
+            else:
+                return jsonify(person.json_repr_lim())
+        # Request specific resource associated with the person if they are authorized
+        if self_req:
+            if resource == CIRCLES:
+                return jsonify([c.json_repr(graph) for c in person.IsMember])
+            elif resource == EVENTS:
+                return jsonify([e.json_repr(graph) for e in person.InvitedTo])
+            elif resource == PEOPLE:
+                return jsonify([k.json_repr_lim() for k in person.Knows])
+            abort(404, description='Invalid resource specified')
+        abort(403, description='Unauthorized resource access')
+
     elif request.method == 'PUT':
-        req_json = request.get_json()
-        try:
-            person.update_from_json(req_json, graph)
-            graph.push(person)
+        if self_req:
+            req_json = request.get_json()
+            try:
+                p = Person.from_json(req_json, graph, push_updates=False)
+                person.update_to(graph, p)
+                return SUCCESS_JSON
+            except KeyError as e:
+                bad_request('Request JSON must include key %s' % e)
+            except GraphError as e:
+                bad_request(e)
+        abort(403, description='Unauthorized modification request')
+
+    elif request.method == 'DELETE':
+        if self_req:
+            person.delete(graph)
             return SUCCESS_JSON
-        except KeyError as e:
-            bad_request('Request JSON must include key %s' % e)
+        abort(403, description='Unauthorized deletion request')
 
 
-@app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET', 'PUT'])
+
+@app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET', 'PUT',
+                                                                 'DELETE'])
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>',
            methods=['GET'])
 def circle(circle_id, resource=None):
+    # Fetch the person making the request
+    req_token = request.headers.get('Authorization')
+    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+
     # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
         abort(404, description='Resource not found')
-    if request.method == 'GET':
-        if not resource:
-            # Request specific circle
-            return jsonify(circle.json_repr(graph))
+    # Determine if user that is requesting the circle has privilege to see it
+    owner_req = req_user.__primaryvalue__ == circle.owner_id
+    member_req = circle_id in list(c.__primaryvalue__ for c in req_user.IsMember)
+    if not member_req:
+        abort(403, description='Unauthorized circle get')
 
-        # Request specific resource associated with the circle
-        if resource == PEOPLE:
-            return jsonify([
-                m.json_repr(graph)
-                for m in Circle.members_of(graph, circle_id)
-            ])
-        elif resource == EVENTS:
-            return jsonify([e.json_repr(graph) for e in circle.Scheduled])
-        abort(404, description='Invalid resource specified')
+    if request.method == 'GET':
+        if member_req:
+            if not resource:
+                # Request specific circle
+                return jsonify(circle.json_repr(graph))
+            # Request specific resource associated with the circle
+            if resource == PEOPLE:
+                return jsonify([
+                    m.json_repr_lim()
+                    for m in Circle.members_of(graph, circle_id)
+                ])
+            elif resource == EVENTS:
+                return jsonify([e.json_repr(graph) for e in circle.Scheduled])
+            abort(404, description='Invalid resource specified')
+        abort(403, description='Unauthorized circle request')
     elif request.method == 'PUT':
         req_json = request.get_json()
         try:
             c = Circle.from_json(req_json, graph, push_updates=False)
-            circle.update_to(graph, c)
-            graph.push(circle)
-            return SUCCESS_JSON
+
+            # TODO: Fix this logic/make it more granular depending on the type of update
+            if owner_req or \
+                    (member_req and c.members_can_add) or \
+                    (member_req and c.members_can_ping):
+                circle.update_to(graph, c)
+                return SUCCESS_JSON
+            abort(403, 'Unauthorized update request')
+
         # KeyErrors will be thrown if any required JSON fields are not present.
         except KeyError as e:
             bad_request('Request JSON must include key %s' % e)
         except GraphError as e:
             bad_request(e)
 
+    elif request.method == 'DELETE':
+        if owner_req:
+            abort(403, description='Unauthorized circle request')
+        # Only the owner may delete a circle
+        circle.delete(graph)
+        return SUCCESS_JSON
 
-@app.route('/circles/api/v1.0/events/<int:event_id>/',
-           defaults={'resource': None})
-@app.route('/circles/api/v1.0/events/<int:event_id>/<resource>',
-           methods=['GET'])
-def get_event(event_id, resource):
+
+@app.route('/circles/api/v1.0/events/<int:event_id>', methods=['GET', 'PUT',
+                                                               'DELETE'])
+@app.route('/circles/api/v1.0/events/<int:event_id>/<resource>', methods=['GET'])
+def event(event_id, resource=None):
     # Fetch event.
     event = Event.match(graph, event_id).first()
     if not event:
         abort(404, description='Resource not found')
-    if not resource:
-        # Request specific event.
-        return jsonify(event.json_repr(graph))
+    # Fetch the person making the request
+    req_token = request.headers.get('Authorization')
+    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+    owner_req = req_user.__primaryvalue__ == event.owner_id
+    guest_req = event_id in list(e.__primaryvalue__ for e in req_user.InvitedTo)
 
-        # Request specific resource associated with the circle
-    if resource in [CIRCLE, CIRCLES]:
-        return jsonify(
-            list(event.circles_of(graph, event_id))[0].json_repr(graph))
-    elif resource == PEOPLE:
-        return event.json_repr(graph)['People']
-    abort(404, description='Invalid resource specified')
+
+    if request.method == 'GET':
+        if owner_req or guest_req:  # access is authorized
+            if not resource:
+                # Request specific event.
+                    return jsonify(event.json_repr(graph))
+                # Request specific resource associated with the event
+            if resource in [CIRCLE, CIRCLES]:
+                return jsonify(
+                    list(event.circles_of(graph, event_id))[0].json_repr(graph))
+            elif resource == PEOPLE:
+                return event.json_repr(graph)['People']
+            abort(404, description='Invalid resource specified')
+        abort(403, description='Unauthorized event update')
+
+    elif request.method == 'PUT':
+        if owner_req or guest_req:  # access is authorized
+            try:
+                req_json = request.get_json()
+                e = Event.from_json(req_json, graph, push_updates=False)
+                event.update_to(graph, e)
+                return SUCCESS_JSON
+            except KeyError as e:
+                bad_request('Request JSON must include key %s' % e)
+            except GraphError as e:
+                bad_request(e)
+        abort(403, description='Unauthorized event request')
+    elif request.method == 'DELETE':
+        if owner_req:
+            event.delete(graph)
+            return SUCCESS_JSON
+        abort(403, description='Unauthorized event deletion request')
 
 
 """
@@ -128,8 +203,7 @@ def post_user():
        """
     req_json = request.get_json()
     try:
-        p = Person.from_json(req_json)
-        graph.push(p)
+        p = Person.from_json(req_json, graph, push_updates=True)
         return SUCCESS_JSON
     except KeyError as e:
         bad_request('Request JSON must include key %s' % e)
@@ -145,6 +219,11 @@ def post_circle():
     - description: String
     """
     req_json = request.get_json()
+
+    # Fetch the person making the request (not necessary but could help if frontend is currently providing this)
+    req_token = request.headers.get('Authorization')
+    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+
     try:
         c = Circle.from_json(req_json, graph, push_updates=True)
         return SUCCESS_JSON
@@ -168,29 +247,29 @@ def post_event():
     - description: String
     """
     # TODO: Using auth, check if Person posting event is owner of Circle.
+
     req_json = request.get_json()
-    try:
-        # Circle must exist to create event.
-        c = Circle.match(graph, req_json['Circle']).first()
-        if not c:
-            bad_request('Circle %s does not exist.' % req_json['Circle'])
 
-        # Event belongs to a circle.
-        e = Event.from_json(req_json)
-        c.Scheduled.add(e)
+    # Fetch the person making the request
+    req_token = request.headers.get('Authorization')
+    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
 
-        # Invite all members of circle to event.
-        members = Circle.members_of(graph, req_json['Circle'])
-        for p in members:
-            p.InvitedTo.add(e, properties={'attending': False})
-            graph.push(p)
-
-        graph.push(c)
-        graph.push(e)
-
-        return SUCCESS_JSON
-    except KeyError as e:
-        bad_request('Request JSON must include key %s' % e)
+    # Fetch the circle that the request is associated with
+    circle = Circle.match(graph, req_json.get('Circle')).first()
+    if not circle:
+        abort(404, description='Invalid Circle Specified')
+    owner_req = req_user.__primaryvalue__ == circle.owner_id
+    member_req = circle.__primaryvalue__ in list(c.__primaryvalue__ for c in req_user.IsMember)
+    member_valid_ping = owner_req or (member_req and circle.members_can_ping)
+    if owner_req or member_valid_ping:
+        try:
+            e = Event.from_json(req_json, graph, push_updates=True)
+            return SUCCESS_JSON
+        except KeyError as e:
+            bad_request('Request JSON must include key %s' % e)
+        except GraphError as e:
+            bad_request(e)
+    abort(403, description='Insufficient Permissions')
 
 
 """
@@ -199,6 +278,14 @@ Other.
 @app.route('/')
 def hello():
     return 'Hello, Circles!!'
+
+
+@app.route('/getid')
+def getid():
+    # Fetch the person making the request
+    req_token = request.headers.get('Authorization')
+    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+    return str(req_user.__primaryvalue__)
 
 
 @app.errorhandler(400)
