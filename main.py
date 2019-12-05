@@ -33,7 +33,7 @@ GET, PUT, and DELETE routes.
            methods=['GET'])
 def person(person_id, resource=None):
     # Fetch the person making the request
-    req_token = request.headers.get('Authorization')
+    req_token = request.headers.get('Authorization').lower()
     req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
 
     # Fetch the person requested
@@ -86,7 +86,7 @@ def person(person_id, resource=None):
            methods=['GET'])
 def circle(circle_id, resource=None):
     # Fetch the person making the request
-    req_token = request.headers.get('Authorization')
+    req_token = request.headers.get('Authorization').lower()
     req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
 
     # Fetch circle.
@@ -150,7 +150,7 @@ def event(event_id, resource=None):
     if not event:
         abort(404, description='Resource not found')
     # Fetch the person making the request
-    req_token = request.headers.get('Authorization')
+    req_token = request.headers.get('Authorization').lower()
     req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
     owner_req = req_user.__primaryvalue__ == event.owner_id
     guest_req = event_id in list(e.__primaryvalue__ for e in req_user.InvitedTo)
@@ -221,7 +221,7 @@ def post_circle():
     req_json = request.get_json()
 
     # Fetch the person making the request (not necessary but could help if frontend is currently providing this)
-    req_token = request.headers.get('Authorization')
+    req_token = request.headers.get('Authorization').lower()
     req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
 
     try:
@@ -251,7 +251,7 @@ def post_event():
     req_json = request.get_json()
 
     # Fetch the person making the request
-    req_token = request.headers.get('Authorization')
+    req_token = request.headers.get('Authorization').lower()
     req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
 
     # Fetch the circle that the request is associated with
@@ -283,7 +283,7 @@ def hello():
 @app.route('/circles/api/v1.0/getid')
 def getid():
     # Fetch the person making the request
-    req_token = request.headers.get('Authorization')
+    req_token = request.headers.get('Authorization').lower()
     req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
     return str(req_user.__primaryvalue__)
 
