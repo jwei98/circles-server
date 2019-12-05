@@ -296,7 +296,7 @@ Other.
 @app.route('/')
 def hello():
     # TODO: This is currently hardcoded. Should be stored in a node property.
-    registration_id = "cp1AyrAc55w:APA91bGRjsuynQRvAvGVWR2W8EoWSdcxXwGypSkC13VdF6-uGJiOJCDI0bQYjbS-_ex9Xt666tmQINMUTp10ZICsYmrcHZzbAX7ikvkd6T-EjqXBcV-WaAdgeE3SqFIuyGRwU_lbbvbQ"
+    registration_id = "esc6hAQADa8:APA91bEGYyiVLPse9EOipUdV9TAUgJGoDZTvXEO_AL48xnaoHZSaO4VeJA3ehFem0ZWw3eQyMdbc6mJZzzcAoJ6kTgE6w2_m7SoQEk3GgKzXkFH28dTxYt8JqR_BHOWhffsecox02i99"
     message_title = "Uber update"
     message_body = "Hi john, your customized news for today is ready"
     result = push_service.notify_single_device(registration_id=registration_id,
@@ -305,10 +305,12 @@ def hello():
     return 'Hello, Circles!!'
 
 
-@app.route('/circles/api/v1.0/getid')
+@app.route('/circles/api/v1.0/getid', methods=['GET'])
 def getid():
     # Fetch the person making the request
     req_user = auth_get_req_user(request)
+    messaging_token = request.headers.get('Messaging')
+    req_user.set_messaging_token(messaging_token)
     return str(req_user.__primaryvalue__)
 
 
