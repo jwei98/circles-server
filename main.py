@@ -288,8 +288,6 @@ def getid():
     return str(req_user.__primaryvalue__)
 
 
-
-
 @app.errorhandler(400)
 @app.errorhandler(404)
 def error(e):
