@@ -1,6 +1,7 @@
 """
 Define all data models.
 """
+import string
 from collections import defaultdict
 from datetime import datetime
 from py2neo.ogm import (GraphObject, Property, Related, RelatedTo, RelatedFrom)
@@ -24,7 +25,7 @@ class Person(GraphObject):
 
     def __init__(self, display_name, email, photo):
         self.display_name = display_name
-        self.email = email
+        self.email = email.lower
         self.photo = photo
 
     @classmethod
@@ -62,7 +63,7 @@ class Person(GraphObject):
 
     def update_to(self, graph, other_person):
         self.display_name = other_person.display_name
-        self.email = other_person.email
+        self.email = other_person.email.lower
         self.photo = other_person.photo
 
         self.Knows.clear()

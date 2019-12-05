@@ -280,12 +280,14 @@ def hello():
     return 'Hello, Circles!!'
 
 
-@app.route('/getid')
+@app.route('/circles/api/v1.0/getid')
 def getid():
     # Fetch the person making the request
     req_token = request.headers.get('Authorization')
     req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
     return str(req_user.__primaryvalue__)
+
+
 
 
 @app.errorhandler(400)
