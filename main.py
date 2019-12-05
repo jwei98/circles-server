@@ -155,11 +155,11 @@ def circle(circle_id, resource=None):
 
     elif request.method == 'DELETE':
         if owner_req:
-            abort(403, description='Unauthorized circle request')
+            circle.delete(graph)
+            return SUCCESS_JSON
+        abort(403, description='Unauthorized circle request')
         # Only the owner may delete a circle
-        circle.delete(graph)
-        return SUCCESS_JSON
-
+        
 
 @app.route('/circles/api/v1.0/events/<int:event_id>', methods=['GET', 'PUT',
                                                                'DELETE'])
