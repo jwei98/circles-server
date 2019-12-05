@@ -165,8 +165,7 @@ def event(event_id, resource=None):
     if not event:
         abort(404, description='Resource not found')
     # Fetch the person making the request
-    req_token = request.headers.get('Authorization').lower()
-    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+    req_user = auth_get_req_user(request)
     owner_req = req_user.__primaryvalue__ == event.owner_id
     guest_req = event_id in list(e.__primaryvalue__ for e in req_user.InvitedTo)
 
