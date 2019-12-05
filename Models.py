@@ -3,7 +3,7 @@ Define all data models.
 """
 from collections import defaultdict
 from datetime import datetime
-from py2neo.ogm import (GraphObject, Property, Related, RelatedTo, RelatedFrom)
+from py2neo.ogm import (GraphObject, Property, Related, RelatedTo)
 
 import cypher
 
@@ -235,17 +235,19 @@ class Event(GraphObject):
     display_name = Property()
     description = Property()
     location = Property()
+    latlng = Property()
     start_datetime = Property()
     end_datetime = Property()
     created_at = Property()
     owner_id = Property()
     circle_id = Property()
 
-    def __init__(self, display_name, description, location, start_datetime,
-                 end_datetime, owner_id, circle_id):
+    def __init__(self, display_name, description, location, latlng,
+                 start_datetime, end_datetime, owner_id, circle_id):
         self.display_name = display_name
         self.description = description
         self.location = location
+        self.latlng = latlng
         self.start_datetime = start_datetime
         self.end_datetime = end_datetime
         self.created_at = datetime.utcnow().replace(microsecond=0).isoformat()
@@ -264,7 +266,7 @@ class Event(GraphObject):
             raise GraphError('Event with id %s does not exist.' % c_id)
 
         e = cls(json['display_name'], json.get('description'),
-                json['location'], json['start_datetime'],
+                json['location'], json['latlng'], json['start_datetime'],
                 json['end_datetime'], json['owner_id'], c_id)
         e.circle = c
 
@@ -292,6 +294,7 @@ class Event(GraphObject):
         self.display_name = to_event.display_name
         self.description = to_event.description
         self.location = to_event.location
+        self.latlng = to_event.latlng,
         self.start_datetime = to_event.start_datetime
         self.end_datetime = to_event.end_datetime
         self.created_at = to_event.created_at
@@ -348,6 +351,7 @@ class Event(GraphObject):
             'display_name': self.display_name,
             'description': self.description,
             'location': self.location,
+            'latlng': self.latlng,
             'start_datetime': self.start_datetime,
             'end_datetime': self.end_datetime,
             'created_at': self.created_at,
