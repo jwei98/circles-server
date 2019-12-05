@@ -9,6 +9,7 @@ from firebase_admin import credentials, auth as fb_auth, _auth_utils as a_util
 firebase_admin.initialize_app()
 
 import auth
+import notif_manager
 from pyfcm import FCMNotification
 from flask import (Flask, abort, jsonify, render_template, request)
 from py2neo import Graph
@@ -245,6 +246,7 @@ def post_circle():
 
     try:
         c = Circle.from_json(req_json, graph, push_updates=True)
+        notif_manager.send_new_circle_notif(graph, c, req_user.__primaryvalue__)
         return SUCCESS_JSON
     # KeyErrors will be thrown if any required JSON fields are not present.
     except KeyError as e:
@@ -268,7 +270,6 @@ def post_event():
     # TODO: Using auth, check if Person posting event is owner of Circle.
 
     req_json = request.get_json()
-
     # Fetch the person making the request
     req_user = auth_get_req_user(request)
     # Fetch the circle that the request is associated with
@@ -282,6 +283,7 @@ def post_event():
     if owner_req or member_valid_ping:
         try:
             e = Event.from_json(req_json, graph, push_updates=True)
+            notif_manager.send_event_notif(graph, circle, e, req_user.__primaryvalue__)
             return SUCCESS_JSON
         except KeyError as e:
             bad_request('Request JSON must include key %s' % e)
@@ -295,13 +297,6 @@ Other.
 """
 @app.route('/')
 def hello():
-    # TODO: This is currently hardcoded. Should be stored in a node property.
-    registration_id = "esc6hAQADa8:APA91bEGYyiVLPse9EOipUdV9TAUgJGoDZTvXEO_AL48xnaoHZSaO4VeJA3ehFem0ZWw3eQyMdbc6mJZzzcAoJ6kTgE6w2_m7SoQEk3GgKzXkFH28dTxYt8JqR_BHOWhffsecox02i99"
-    message_title = "Uber update"
-    message_body = "Hi john, your customized news for today is ready"
-    result = push_service.notify_single_device(registration_id=registration_id,
-                                               message_title=message_title, message_body=message_body)
-    print(result)
     return 'Hello, Circles!!'
 
 

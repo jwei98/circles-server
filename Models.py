@@ -64,9 +64,10 @@ class Person(GraphObject):
         return p
 
     def set_messaging_token(self, graph, token):
+        if not token:
+            return
         self.messaging_token = token
         graph.push(self)
-
 
     def update_to(self, graph, other_person):
         self.display_name = other_person.display_name
