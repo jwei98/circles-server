@@ -6,6 +6,7 @@ import json
 from itertools import combinations
 
 import auth
+from pyfcm import FCMNotification
 from flask import (Flask, abort, jsonify, render_template, request)
 from py2neo import Graph
 
@@ -21,9 +22,13 @@ SUCCESS_JSON = json.dumps({'success': True}), 200, {
 
 app = Flask(__name__)
 
+# Setup push notifications
+push_service = FCMNotification(api_key=auth.fcm_creds())
+
 # Connect to Neo4j graph.
 host, username, password = auth.neo4j_creds()
-graph = Graph(host=host, username=username, password=password, secure=True)
+graph = Graph(host=host, username=username,
+              password=password, secure=True)
 """
 GET, PUT, and DELETE routes.
 """
@@ -34,7 +39,8 @@ GET, PUT, and DELETE routes.
 def person(person_id, resource=None):
     # Fetch the person making the request
     req_token = request.headers.get('Authorization').lower()
-    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+    req_user = (Person.match(graph).where(
+        "_.email = '{}'".format(req_token))).first()
 
     # Fetch the person requested
     person = Person.match(graph, person_id).first()
@@ -79,7 +85,6 @@ def person(person_id, resource=None):
         abort(403, description='Unauthorized deletion request')
 
 
-
 @app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET', 'PUT',
                                                                  'DELETE'])
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>',
@@ -87,7 +92,8 @@ def person(person_id, resource=None):
 def circle(circle_id, resource=None):
     # Fetch the person making the request
     req_token = request.headers.get('Authorization').lower()
-    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+    req_user = (Person.match(graph).where(
+        "_.email = '{}'".format(req_token))).first()
 
     # Fetch circle.
     circle = Circle.match(graph, circle_id).first()
@@ -95,7 +101,8 @@ def circle(circle_id, resource=None):
         abort(404, description='Resource not found')
     # Determine if user that is requesting the circle has privilege to see it
     owner_req = req_user.__primaryvalue__ == circle.owner_id
-    member_req = circle_id in list(c.__primaryvalue__ for c in req_user.IsMember)
+    member_req = circle_id in list(
+        c.__primaryvalue__ for c in req_user.IsMember)
     if not member_req:
         abort(403, description='Unauthorized circle get')
 
@@ -151,10 +158,11 @@ def event(event_id, resource=None):
         abort(404, description='Resource not found')
     # Fetch the person making the request
     req_token = request.headers.get('Authorization').lower()
-    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+    req_user = (Person.match(graph).where(
+        "_.email = '{}'".format(req_token))).first()
     owner_req = req_user.__primaryvalue__ == event.owner_id
-    guest_req = event_id in list(e.__primaryvalue__ for e in req_user.InvitedTo)
-
+    guest_req = event_id in list(
+        e.__primaryvalue__ for e in req_user.InvitedTo)
 
     if request.method == 'GET':
         if owner_req or guest_req:  # access is authorized
@@ -222,7 +230,8 @@ def post_circle():
 
     # Fetch the person making the request (not necessary but could help if frontend is currently providing this)
     req_token = request.headers.get('Authorization').lower()
-    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+    req_user = (Person.match(graph).where(
+        "_.email = '{}'".format(req_token))).first()
 
     try:
         c = Circle.from_json(req_json, graph, push_updates=True)
@@ -252,14 +261,16 @@ def post_event():
 
     # Fetch the person making the request
     req_token = request.headers.get('Authorization').lower()
-    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+    req_user = (Person.match(graph).where(
+        "_.email = '{}'".format(req_token))).first()
 
     # Fetch the circle that the request is associated with
     circle = Circle.match(graph, req_json.get('Circle')).first()
     if not circle:
         abort(404, description='Invalid Circle Specified')
     owner_req = req_user.__primaryvalue__ == circle.owner_id
-    member_req = circle.__primaryvalue__ in list(c.__primaryvalue__ for c in req_user.IsMember)
+    member_req = circle.__primaryvalue__ in list(
+        c.__primaryvalue__ for c in req_user.IsMember)
     member_valid_ping = owner_req or (member_req and circle.members_can_ping)
     if owner_req or member_valid_ping:
         try:
@@ -277,6 +288,13 @@ Other.
 """
 @app.route('/')
 def hello():
+    # TODO: This is currently hardcoded. Should be stored in a node property.
+    registration_id = "cp1AyrAc55w:APA91bGRjsuynQRvAvGVWR2W8EoWSdcxXwGypSkC13VdF6-uGJiOJCDI0bQYjbS-_ex9Xt666tmQINMUTp10ZICsYmrcHZzbAX7ikvkd6T-EjqXBcV-WaAdgeE3SqFIuyGRwU_lbbvbQ"
+    message_title = "Uber update"
+    message_body = "Hi john, your customized news for today is ready"
+    result = push_service.notify_single_device(registration_id=registration_id,
+                                               message_title=message_title, message_body=message_body)
+    print(result)
     return 'Hello, Circles!!'
 
 
@@ -284,7 +302,8 @@ def hello():
 def getid():
     # Fetch the person making the request
     req_token = request.headers.get('Authorization').lower()
-    req_user = (Person.match(graph).where("_.email = '{}'".format(req_token))).first()
+    req_user = (Person.match(graph).where(
+        "_.email = '{}'".format(req_token))).first()
     return str(req_user.__primaryvalue__)
 
 

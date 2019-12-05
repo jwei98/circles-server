@@ -1,5 +1,6 @@
 Click==7.0
 Flask==1.1.1
+pyfcm==1.4.7
 py2neo==4.3.0
 google-cloud-datastore==1.10.0
 itsdangerous==1.1.0
