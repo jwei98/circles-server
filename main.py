@@ -6,7 +6,7 @@ import json
 from itertools import combinations
 import firebase_admin
 from firebase_admin import credentials, auth as fb_auth, _auth_utils as a_util
-firebase_admin.initialize_app(cred)
+firebase_admin.initialize_app()
 
 import auth
 from flask import (Flask, abort, jsonify, render_template, request)
