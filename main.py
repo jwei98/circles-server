@@ -259,7 +259,7 @@ def post_event():
 
     req_json = request.get_json()
 
-    # Fetch the person making the request
+    # Fetch the person making the request.
     req_user = auth_get_req_user(request)
 
     # Fetch the circle that the request is associated with
