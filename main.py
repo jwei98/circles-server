@@ -50,7 +50,6 @@ GET, PUT, and DELETE routes.
 @app.route('/circles/api/v1.0/users/<int:person_id>/<resource>',
            methods=['GET'])
 def person(person_id, resource=None):
-
     # Fetch the person making the request
     req_user = auth_get_req_user(request)
     # Fetch the person requested
