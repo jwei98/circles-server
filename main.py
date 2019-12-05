@@ -1,16 +1,18 @@
 """
 Main driver for Flask server.
 """
+from Models import Person, Circle, Event, GraphError
+from py2neo import Graph
+from flask import (Flask, abort, jsonify, render_template, request)
+from pyfcm import FCMNotification
+import auth
 import os
 import json
 from itertools import combinations
+import firebase_admin
+from firebase_admin import credentials, auth as fb_auth, _auth_utils as a_util
+firebase_admin.initialize_app()
 
-import auth
-from pyfcm import FCMNotification
-from flask import (Flask, abort, jsonify, render_template, request)
-from py2neo import Graph
-
-from Models import Person, Circle, Event, GraphError
 
 CIRCLES = 'circles'
 CIRCLE = 'circle'
@@ -27,8 +29,22 @@ push_service = FCMNotification(api_key=auth.fcm_creds())
 
 # Connect to Neo4j graph.
 host, username, password = auth.neo4j_creds()
-graph = Graph(host=host, username=username,
-              password=password, secure=True)
+graph = Graph(host=host, username=username, password=password, secure=True)
+
+
+def auth_get_req_user(request):
+    # Fetch the person making the request
+    req_token = request.headers.get('Authorization')
+    try:
+        decoded_token = fb_auth.verify_id_token(req_token)
+        req_email = decoded_token['email']
+        req_user = (Person.match(graph).where(
+            "_.email = '{}'".format(req_email))).first()
+        return req_user
+    except a_util.InvalidIdTokenError:
+        bad_request('Invalid authorization attempt.')
+
+
 """
 GET, PUT, and DELETE routes.
 """
@@ -38,10 +54,7 @@ GET, PUT, and DELETE routes.
            methods=['GET'])
 def person(person_id, resource=None):
     # Fetch the person making the request
-    req_token = request.headers.get('Authorization').lower()
-    req_user = (Person.match(graph).where(
-        "_.email = '{}'".format(req_token))).first()
-
+    req_user = auth_get_req_user(request)
     # Fetch the person requested
     person = Person.match(graph, person_id).first()
     if not person:
@@ -91,11 +104,8 @@ def person(person_id, resource=None):
            methods=['GET'])
 def circle(circle_id, resource=None):
     # Fetch the person making the request
-    req_token = request.headers.get('Authorization').lower()
-    req_user = (Person.match(graph).where(
-        "_.email = '{}'".format(req_token))).first()
-
-    # Fetch circle.
+    req_user = auth_get_req_user(request)
+    # Fetch circle being requested.
     circle = Circle.match(graph, circle_id).first()
     if not circle:
         abort(404, description='Resource not found')
@@ -157,9 +167,7 @@ def event(event_id, resource=None):
     if not event:
         abort(404, description='Resource not found')
     # Fetch the person making the request
-    req_token = request.headers.get('Authorization').lower()
-    req_user = (Person.match(graph).where(
-        "_.email = '{}'".format(req_token))).first()
+    req_user = auth_get_req_user(request)
     owner_req = req_user.__primaryvalue__ == event.owner_id
     guest_req = event_id in list(
         e.__primaryvalue__ for e in req_user.InvitedTo)
@@ -228,12 +236,11 @@ def post_circle():
     """
     req_json = request.get_json()
 
-    # Fetch the person making the request (not necessary but could help if frontend is currently providing this)
-    req_token = request.headers.get('Authorization').lower()
-    req_user = (Person.match(graph).where(
-        "_.email = '{}'".format(req_token))).first()
+    # Fetch the person making the request (not necessary but could help if
+    # frontend is currently providing this)
+   req_user = auth_get_req_user(request)
 
-    try:
+   try:
         c = Circle.from_json(req_json, graph, push_updates=True)
         return SUCCESS_JSON
     # KeyErrors will be thrown if any required JSON fields are not present.
@@ -260,9 +267,7 @@ def post_event():
     req_json = request.get_json()
 
     # Fetch the person making the request
-    req_token = request.headers.get('Authorization').lower()
-    req_user = (Person.match(graph).where(
-        "_.email = '{}'".format(req_token))).first()
+    req_user = auth_get_req_user(request)
 
     # Fetch the circle that the request is associated with
     circle = Circle.match(graph, req_json.get('Circle')).first()
@@ -301,9 +306,7 @@ def hello():
 @app.route('/circles/api/v1.0/getid')
 def getid():
     # Fetch the person making the request
-    req_token = request.headers.get('Authorization').lower()
-    req_user = (Person.match(graph).where(
-        "_.email = '{}'".format(req_token))).first()
+    req_user = auth_get_req_user(request)
     return str(req_user.__primaryvalue__)
 
 
