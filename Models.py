@@ -25,7 +25,7 @@ class Person(GraphObject):
 
     def __init__(self, display_name, email, photo):
         self.display_name = display_name
-        self.email = email.lower
+        self.email = email.lower()
         self.photo = photo
 
     @classmethod
@@ -63,7 +63,7 @@ class Person(GraphObject):
 
     def update_to(self, graph, other_person):
         self.display_name = other_person.display_name
-        self.email = other_person.email.lower
+        self.email = other_person.email.lower()
         self.photo = other_person.photo
 
         self.Knows.clear()
