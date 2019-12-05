@@ -140,8 +140,8 @@ def circle(circle_id, resource=None):
             if owner_req or \
                     (member_req and c.members_can_add) or \
                     (member_req and c.members_can_ping):
-                circle.update_to(graph, c)
-                return SUCCESS_JSON
+                        circle.update_to(graph, c)
+                        return SUCCESS_JSON
             abort(403, 'Unauthorized update request')
 
         # KeyErrors will be thrown if any required JSON fields are not present.
@@ -238,16 +238,16 @@ def post_circle():
 
     # Fetch the person making the request (not necessary but could help if
     # frontend is currently providing this)
-   req_user = auth_get_req_user(request)
+    req_user = auth_get_req_user(request)
 
-   try:
+    try:
         c = Circle.from_json(req_json, graph, push_updates=True)
         return SUCCESS_JSON
     # KeyErrors will be thrown if any required JSON fields are not present.
     except KeyError as e:
-        bad_request('Request JSON must include key %s' % e)
+       bad_request('Request JSON must include key %s' % e)
     except GraphError as e:
-        bad_request(e)
+       bad_request(e)
 
 
 @app.route('/circles/api/v1.0/events', methods=['POST'])
