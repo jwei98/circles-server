@@ -310,7 +310,7 @@ def getid():
     # Fetch the person making the request
     req_user = auth_get_req_user(request)
     messaging_token = request.headers.get('Messaging')
-    req_user.set_messaging_token(messaging_token)
+    req_user.set_messaging_token(graph, messaging_token)
     return str(req_user.__primaryvalue__)
 
 
