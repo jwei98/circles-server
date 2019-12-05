@@ -94,7 +94,6 @@ def person(person_id, resource=None):
         abort(403, description='Unauthorized deletion request')
 
 
-
 @app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET', 'PUT',
                                                                  'DELETE'])
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>',
@@ -166,7 +165,6 @@ def event(event_id, resource=None):
     req_user = auth_get_req_user(request)
     owner_req = req_user.__primaryvalue__ == event.owner_id
     guest_req = event_id in list(e.__primaryvalue__ for e in req_user.InvitedTo)
-
 
     if request.method == 'GET':
         if owner_req or guest_req:  # access is authorized
