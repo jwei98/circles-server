@@ -6,7 +6,6 @@ import json
 from itertools import combinations
 import firebase_admin
 from firebase_admin import credentials, auth as fb_auth, _auth_utils as a_util
-cred = credentials.Certificate(os.getenv('GOOGLE_APPLICATION_CREDENTIALS'))
 firebase_admin.initialize_app(cred)
 
 import auth
