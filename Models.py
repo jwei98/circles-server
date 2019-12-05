@@ -63,7 +63,7 @@ class Person(GraphObject):
 
     def update_to(self, graph, other_person):
         self.display_name = other_person.display_name
-        self.email = other_person.email.lower()
+        self.email = other_person.email
         self.photo = other_person.photo
 
         self.Knows.clear()
@@ -124,7 +124,6 @@ class Person(GraphObject):
             'display_name': self.display_name,
             'photo': self.photo,
         }
-
 
 
 class Circle(GraphObject):
