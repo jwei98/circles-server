@@ -5,8 +5,19 @@ from Models import Person, Circle, Event, GraphError
 
 push_service = FCMNotification(api_key=auth.fcm_creds())
 EVENT_NOTIF_TITLE = 'New Event Invite'
-FRIEND_NOTIF_TITLE = 'New Friend Request'
+FRIEND_NOTIF_TITLE = 'New Friend'
 CIRCLE_NOTIF_TITLE = 'New Circle'
+
+
+def send_add_person_notif(graph, adder, people_to_notify):
+    for p in people_to_notify:
+        try:
+            send_notification(p.messaging_token, FRIEND_NOTIF_TITLE,
+                              '{} has added you as a friend!'
+                              .format(adder.display_name))
+        # TODO: figure out what exceptions come up
+        except Exception as x:
+            print('Unable to send notification: ' + str(x))
 
 
 def send_event_notif(graph, c, e, creator_id):

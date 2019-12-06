@@ -84,8 +84,18 @@ def person(person_id, resource=None):
         if self_req:
             req_json = request.get_json()
             try:
-                p = Person.from_json(req_json, graph, push_updates=False)
-                person.update_to(graph, p)
+                to_person = Person.from_json(
+                    req_json, graph, push_updates=False)
+                # First get new IDs in the circle.
+                new_members = set(p.__primaryvalue__ for p in to_person.Knows)
+                old_members = set(p.__primaryvalue__ for p in person.Knows)
+                newly_added_ids = new_members - old_members
+                # Get the actual people corresponding to the new ID's.
+                newly_added_people = [p for p in to_person.Knows if
+                                      p.__primaryvalue__ in newly_added_ids]
+                person.update_to(graph, to_person)
+                notif_manager.send_add_person_notif(
+                    graph, req_user, newly_added_people)
                 return SUCCESS_JSON
             except KeyError as e:
                 bad_request('Request JSON must include key %s' % e)
