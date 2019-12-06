@@ -9,6 +9,8 @@ from firebase_admin import credentials, auth as fb_auth, _auth_utils as a_util
 firebase_admin.initialize_app()
 
 import auth
+import notif_manager
+from pyfcm import FCMNotification
 from flask import (Flask, abort, jsonify, render_template, request)
 from py2neo import Graph
 
@@ -24,9 +26,14 @@ SUCCESS_JSON = json.dumps({'success': True}), 200, {
 
 app = Flask(__name__)
 
+# Setup push notifications
+push_service = FCMNotification(api_key=auth.fcm_creds())
+
 # Connect to Neo4j graph.
 host, username, password = auth.neo4j_creds()
-graph = Graph(host=host, username=username, password=password, secure=True)
+graph = Graph(host=host, username=username,
+              password=password, secure=True)
+
 
 
 def auth_get_req_user(request):
@@ -94,7 +101,6 @@ def person(person_id, resource=None):
         abort(403, description='Unauthorized deletion request')
 
 
-
 @app.route('/circles/api/v1.0/circles/<int:circle_id>', methods=['GET', 'PUT',
                                                                  'DELETE'])
 @app.route('/circles/api/v1.0/circles/<int:circle_id>/<resource>',
@@ -108,7 +114,8 @@ def circle(circle_id, resource=None):
         abort(404, description='Resource not found')
     # Determine if user that is requesting the circle has privilege to see it
     owner_req = req_user.__primaryvalue__ == circle.owner_id
-    member_req = circle_id in list(c.__primaryvalue__ for c in req_user.IsMember)
+    member_req = circle_id in list(
+        c.__primaryvalue__ for c in req_user.IsMember)
     if not member_req:
         abort(403, description='Unauthorized circle get')
 
@@ -165,8 +172,8 @@ def event(event_id, resource=None):
     # Fetch the person making the request
     req_user = auth_get_req_user(request)
     owner_req = req_user.__primaryvalue__ == event.owner_id
-    guest_req = event_id in list(e.__primaryvalue__ for e in req_user.InvitedTo)
-
+    guest_req = event_id in list(
+        e.__primaryvalue__ for e in req_user.InvitedTo)
 
     if request.method == 'GET':
         if owner_req or guest_req:  # access is authorized
@@ -233,10 +240,13 @@ def post_circle():
     req_json = request.get_json()
 
     # Fetch the person making the request (not necessary but could help if frontend is currently providing this)
+
     req_user = auth_get_req_user(request)
+
 
     try:
         c = Circle.from_json(req_json, graph, push_updates=True)
+        notif_manager.send_new_circle_notif(graph, c, req_user.__primaryvalue__)
         return SUCCESS_JSON
     # KeyErrors will be thrown if any required JSON fields are not present.
     except KeyError as e:
@@ -260,20 +270,20 @@ def post_event():
     # TODO: Using auth, check if Person posting event is owner of Circle.
 
     req_json = request.get_json()
-
     # Fetch the person making the request
     req_user = auth_get_req_user(request)
-
     # Fetch the circle that the request is associated with
     circle = Circle.match(graph, req_json.get('Circle')).first()
     if not circle:
         abort(404, description='Invalid Circle Specified')
     owner_req = req_user.__primaryvalue__ == circle.owner_id
-    member_req = circle.__primaryvalue__ in list(c.__primaryvalue__ for c in req_user.IsMember)
+    member_req = circle.__primaryvalue__ in list(
+        c.__primaryvalue__ for c in req_user.IsMember)
     member_valid_ping = owner_req or (member_req and circle.members_can_ping)
     if owner_req or member_valid_ping:
         try:
             e = Event.from_json(req_json, graph, push_updates=True)
+            notif_manager.send_event_notif(graph, circle, e, req_user.__primaryvalue__)
             return SUCCESS_JSON
         except KeyError as e:
             bad_request('Request JSON must include key %s' % e)
@@ -290,10 +300,12 @@ def hello():
     return 'Hello, Circles!!'
 
 
-@app.route('/circles/api/v1.0/getid')
+@app.route('/circles/api/v1.0/getid', methods=['GET'])
 def getid():
     # Fetch the person making the request
     req_user = auth_get_req_user(request)
+    messaging_token = request.headers.get('Messaging')
+    req_user.set_messaging_token(graph, messaging_token)
     return str(req_user.__primaryvalue__)
 
 

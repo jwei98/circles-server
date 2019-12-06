@@ -19,6 +19,8 @@ class Person(GraphObject):
     email = Property()
     photo = Property()
 
+    messaging_token = Property()
+
     Knows = Related('Person', 'KNOWS')
     IsMember = RelatedTo('Circle', 'IS_MEMBER')
     InvitedTo = RelatedTo('Event', 'INVITED_TO')
@@ -60,6 +62,12 @@ class Person(GraphObject):
             graph.push(p)
 
         return p
+
+    def set_messaging_token(self, graph, token):
+        if not token:
+            return
+        self.messaging_token = token
+        graph.push(self)
 
     def update_to(self, graph, other_person):
         self.display_name = other_person.display_name
