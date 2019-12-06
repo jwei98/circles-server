@@ -367,7 +367,7 @@ class Event(GraphObject):
             'display_name': self.display_name,
             'description': self.description,
             'location': self.location,
-            'latlng': self.latlng[0],
+            'latlng': self.latlng[0] if self.latlng else None,
             'start_datetime': self.start_datetime,
             'end_datetime': self.end_datetime,
             'created_at': self.created_at,
