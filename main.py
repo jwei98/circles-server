@@ -1,6 +1,12 @@
 """
 Main driver for Flask server.
 """
+from Models import Person, Circle, Event, GraphError
+from py2neo import Graph
+from flask import (Flask, abort, jsonify, render_template, request)
+from pyfcm import FCMNotification
+import notif_manager
+import auth
 import os
 import json
 from itertools import combinations
@@ -8,13 +14,6 @@ import firebase_admin
 from firebase_admin import credentials, auth as fb_auth, _auth_utils as a_util
 firebase_admin.initialize_app()
 
-import auth
-import notif_manager
-from pyfcm import FCMNotification
-from flask import (Flask, abort, jsonify, render_template, request)
-from py2neo import Graph
-
-from Models import Person, Circle, Event, GraphError
 
 CIRCLES = 'circles'
 CIRCLE = 'circle'
@@ -35,14 +34,14 @@ graph = Graph(host=host, username=username,
               password=password, secure=True)
 
 
-
 def auth_get_req_user(request):
     # Fetch the person making the request
     req_token = request.headers.get('Authorization')
     try:
         decoded_token = fb_auth.verify_id_token(req_token)
         req_email = decoded_token['email']
-        req_user = (Person.match(graph).where("_.email = '{}'".format(req_email))).first()
+        req_user = (Person.match(graph).where(
+            "_.email = '{}'".format(req_email))).first()
         return req_user
     except a_util.InvalidIdTokenError:
         bad_request('Invalid authorization attempt.')
@@ -144,6 +143,12 @@ def circle(circle_id, resource=None):
                     (member_req and c.members_can_add) or \
                     (member_req and c.members_can_ping):
                 circle.update_to(graph, c)
+                # Send notification to those updated by change.
+                new_members = set(c.members)
+                old_members = set(c.members)
+                print(new_members)
+                print(old_members)
+                return SUCCESS_JSON
                 return SUCCESS_JSON
             abort(403, 'Unauthorized update request')
 
@@ -159,7 +164,7 @@ def circle(circle_id, resource=None):
             return SUCCESS_JSON
         abort(403, description='Unauthorized circle request')
         # Only the owner may delete a circle
-        
+
 
 @app.route('/circles/api/v1.0/events/<int:event_id>', methods=['GET', 'PUT',
                                                                'DELETE'])
@@ -243,10 +248,10 @@ def post_circle():
 
     req_user = auth_get_req_user(request)
 
-
     try:
         c = Circle.from_json(req_json, graph, push_updates=True)
-        notif_manager.send_new_circle_notif(graph, c, req_user.__primaryvalue__)
+        notif_manager.send_new_circle_notif(
+            graph, c, req_user.__primaryvalue__)
         return SUCCESS_JSON
     # KeyErrors will be thrown if any required JSON fields are not present.
     except KeyError as e:
@@ -283,7 +288,8 @@ def post_event():
     if owner_req or member_valid_ping:
         try:
             e = Event.from_json(req_json, graph, push_updates=True)
-            notif_manager.send_event_notif(graph, circle, e, req_user.__primaryvalue__)
+            notif_manager.send_event_notif(
+                graph, circle, e, req_user.__primaryvalue__)
             return SUCCESS_JSON
         except KeyError as e:
             bad_request('Request JSON must include key %s' % e)
