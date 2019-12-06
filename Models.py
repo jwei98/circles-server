@@ -333,12 +333,16 @@ class Event(GraphObject):
     def json_repr(self, graph):
         invitees = Event.invitees_of(graph, self.__primaryvalue__)
         circles = Event.circles_of(graph, self.__primaryvalue__)
+        if isinstance(self.latlng, str):
+            latlng = self.latlng
+        elif isinstance(self.latlng, list):
+            latlng = self.latlng[0]
         return {
             'id': self.__primaryvalue__,
             'display_name': self.display_name,
             'description': self.description,
             'location': self.location,
-            'latlng': self.latlng[0] if self.latlng else None,
+            'latlng': latlng,
             'start_datetime': self.start_datetime,
             'end_datetime': self.end_datetime,
             'created_at': self.created_at,
