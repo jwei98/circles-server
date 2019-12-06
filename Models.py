@@ -1,5 +1,5 @@
 """
-Define all data models.
+Define all data models: Person, Circle, Event.
 """
 import string
 from collections import defaultdict
@@ -13,7 +13,6 @@ class GraphError(Exception):
     pass
 
 
-# TODO: Consider __primarykey__ as email rather than implicit __id__
 class Person(GraphObject):
     display_name = Property()
     email = Property()
@@ -32,13 +31,6 @@ class Person(GraphObject):
 
     @classmethod
     def from_json(cls, json, graph, push_updates=False):
-        """
-        Required json keys:
-        - display_name: str
-        - email: str
-        Optional json:
-        - photo: str
-        """
         p = cls(json['display_name'], json['email'], json.get('photo'))
 
         for p_id in json.get('People', []):
@@ -126,13 +118,6 @@ class Person(GraphObject):
             'photo': self.photo,
         }
 
-    def json_repr_lim(self):
-        return{
-            'id': self.__primaryvalue__,
-            'display_name': self.display_name,
-            'photo': self.photo,
-        }
-
 
 class Circle(GraphObject):
     display_name = Property()
@@ -154,20 +139,6 @@ class Circle(GraphObject):
 
     @classmethod
     def from_json(cls, json, graph, push_updates=False):
-        """
-        push_updates: Whether updates should be pushed to graph or not.
-                      This should be True if creating a new resource, and
-                      false if just using to create a temp object.
-
-        Required json keys:
-        - display_name <str>
-        - owner_id <int>: Creator's Person ID.
-        Optional keys:
-        - description <str>
-        - members_can_add <bool>: Whether members can add people to circle.
-        - members_can_ping <bool>: Whether members can ping circle.
-        """
-        # TODO: Check that owner_id is in list of members?
         c = cls(json['display_name'], json.get('description'),
                 json['owner_id'], json.get('members_can_add', False),
                 json.get('members_can_ping', False))
