@@ -1,6 +1,12 @@
 """
 Main driver for Flask server.
 """
+from Models import Person, Circle, Event, GraphError
+from py2neo import Graph
+from flask import (Flask, abort, jsonify, render_template, request)
+from pyfcm import FCMNotification
+import notif_manager
+import auth
 import os
 import json
 from itertools import combinations
@@ -8,13 +14,6 @@ import firebase_admin
 from firebase_admin import credentials, auth as fb_auth, _auth_utils as a_util
 firebase_admin.initialize_app()
 
-import auth
-import notif_manager
-from pyfcm import FCMNotification
-from flask import (Flask, abort, jsonify, render_template, request)
-from py2neo import Graph
-
-from Models import Person, Circle, Event, GraphError
 
 CIRCLES = 'circles'
 CIRCLE = 'circle'
@@ -35,14 +34,14 @@ graph = Graph(host=host, username=username,
               password=password, secure=True)
 
 
-
 def auth_get_req_user(request):
     # Fetch the person making the request
     req_token = request.headers.get('Authorization')
     try:
         decoded_token = fb_auth.verify_id_token(req_token)
         req_email = decoded_token['email']
-        req_user = (Person.match(graph).where("_.email = '{}'".format(req_email))).first()
+        req_user = (Person.match(graph).where(
+            "_.email = '{}'".format(req_email))).first()
         return req_user
     except a_util.InvalidIdTokenError:
         bad_request('Invalid authorization attempt.')
@@ -137,13 +136,27 @@ def circle(circle_id, resource=None):
     elif request.method == 'PUT':
         req_json = request.get_json()
         try:
-            c = Circle.from_json(req_json, graph, push_updates=False)
+            to_circle = Circle.from_json(req_json, graph, push_updates=False)
 
             # TODO: Fix this logic/make it more granular depending on the type of update
             if owner_req or \
-                    (member_req and c.members_can_add) or \
-                    (member_req and c.members_can_ping):
-                circle.update_to(graph, c)
+                    (member_req and to_circle.members_can_add) or \
+                    (member_req and to_circle.members_can_ping):
+                # Send notification to those updated by change.
+                # First get new IDs in the circle.
+                new_members = set(
+                    c.__primaryvalue__ for c in to_circle.members)
+                old_members = set(
+                    c.__primaryvalue__ for c in Circle.members_of(graph,
+                                                                  circle_id))
+                newly_added_ids = new_members - old_members
+                # Get the actual people corresponding to the new ID's.
+                newly_added_people = [p for p in to_circle.members if
+                                      p.__primaryvalue__ in newly_added_ids]
+                circle.update_to(graph, to_circle)
+                notif_manager.send_new_circle_notif(graph, circle,
+                                                    req_user.__primaryvalue__,
+                                                    newly_added_people)
                 return SUCCESS_JSON
             abort(403, 'Unauthorized update request')
 
@@ -159,7 +172,7 @@ def circle(circle_id, resource=None):
             return SUCCESS_JSON
         abort(403, description='Unauthorized circle request')
         # Only the owner may delete a circle
-        
+
 
 @app.route('/circles/api/v1.0/events/<int:event_id>', methods=['GET', 'PUT',
                                                                'DELETE'])
@@ -243,10 +256,18 @@ def post_circle():
 
     req_user = auth_get_req_user(request)
 
-
     try:
         c = Circle.from_json(req_json, graph, push_updates=True)
-        notif_manager.send_new_circle_notif(graph, c, req_user.__primaryvalue__)
+
+
+<< << << < Updated upstream
+        notif_manager.send_new_circle_notif(
+            graph, c, req_user.__primaryvalue__)
+== == == =
+        notif_manager.send_new_circle_notif(
+            graph, c, req_user.__primaryvalue__,
+            list(Circle.members_of(graph, c.__primaryvalue__)))
+>>>>>> > Stashed changes
         return SUCCESS_JSON
     # KeyErrors will be thrown if any required JSON fields are not present.
     except KeyError as e:
