@@ -1,21 +1,19 @@
 """
 Main driver for Flask server.
 """
-import os
 import json
 from itertools import combinations
 import firebase_admin
 from firebase_admin import credentials, auth as fb_auth, _auth_utils as a_util
-firebase_admin.initialize_app()
-
 import auth
 import notif_manager
 from pyfcm import FCMNotification
 from flask import (Flask, abort, jsonify, render_template, request)
 from py2neo import Graph
-
 from Models import Person, Circle, Event, GraphError
 
+
+firebase_admin.initialize_app()
 CIRCLES = 'circles'
 CIRCLE = 'circle'
 EVENTS = 'events'
@@ -33,7 +31,6 @@ push_service = FCMNotification(api_key=auth.fcm_creds())
 host, username, password = auth.neo4j_creds()
 graph = Graph(host=host, username=username,
               password=password, secure=True)
-
 
 
 def auth_get_req_user(request):
@@ -85,8 +82,18 @@ def person(person_id, resource=None):
         if self_req:
             req_json = request.get_json()
             try:
-                p = Person.from_json(req_json, graph, push_updates=False)
-                person.update_to(graph, p)
+                to_person = Person.from_json(
+                    req_json, graph, push_updates=False)
+                # First get IDs of newly added people.
+                new_members = set(p.__primaryvalue__ for p in to_person.Knows)
+                old_members = set(p.__primaryvalue__ for p in person.Knows)
+                newly_added_ids = new_members - old_members
+                # Get the actual people corresponding to the new ID's.
+                newly_added_people = [p for p in to_person.Knows if
+                                      p.__primaryvalue__ in newly_added_ids]
+                person.update_to(graph, to_person)
+                notif_manager.send_add_person_notif(
+                    graph, req_user, newly_added_people)
                 return SUCCESS_JSON
             except KeyError as e:
                 bad_request('Request JSON must include key %s' % e)
@@ -134,16 +141,30 @@ def circle(circle_id, resource=None):
                 return jsonify([e.json_repr(graph) for e in circle.Scheduled])
             abort(404, description='Invalid resource specified')
         abort(403, description='Unauthorized circle request')
+
     elif request.method == 'PUT':
         req_json = request.get_json()
         try:
-            c = Circle.from_json(req_json, graph, push_updates=False)
+            to_circle = Circle.from_json(req_json, graph, push_updates=False)
 
-            # TODO: Fix this logic/make it more granular depending on the type of update
             if owner_req or \
-                    (member_req and c.members_can_add) or \
-                    (member_req and c.members_can_ping):
-                circle.update_to(graph, c)
+                    (member_req and to_circle.members_can_add) or \
+                    (member_req and to_circle.members_can_ping):
+                # Send notification to those updated by change.
+                # First get new IDs in the circle.
+                new_members = set(
+                    c.__primaryvalue__ for c in to_circle.members)
+                old_members = set(
+                    c.__primaryvalue__ for c in Circle.members_of(graph,
+                                                                  circle_id))
+                newly_added_ids = new_members - old_members
+                # Get the actual people corresponding to the new ID's.
+                newly_added_people = [p for p in to_circle.members if
+                                      p.__primaryvalue__ in newly_added_ids]
+                circle.update_to(graph, to_circle)
+                notif_manager.send_new_circle_notif(graph, circle,
+                                                    req_user.__primaryvalue__,
+                                                    newly_added_people)
                 return SUCCESS_JSON
             abort(403, 'Unauthorized update request')
 
@@ -155,10 +176,10 @@ def circle(circle_id, resource=None):
 
     elif request.method == 'DELETE':
         if owner_req:
-            abort(403, description='Unauthorized circle request')
+            circle.delete(graph)
+            return SUCCESS_JSON
+        abort(403, description='Unauthorized circle request')
         # Only the owner may delete a circle
-        circle.delete(graph)
-        return SUCCESS_JSON
 
 
 @app.route('/circles/api/v1.0/events/<int:event_id>', methods=['GET', 'PUT',
@@ -239,14 +260,15 @@ def post_circle():
     """
     req_json = request.get_json()
 
-    # Fetch the person making the request (not necessary but could help if frontend is currently providing this)
-
+    # Fetch the person making the request
     req_user = auth_get_req_user(request)
 
 
     try:
         c = Circle.from_json(req_json, graph, push_updates=True)
-        notif_manager.send_new_circle_notif(graph, c, req_user.__primaryvalue__)
+        notif_manager.send_new_circle_notif(
+            graph, c, req_user.__primaryvalue__,
+            list(Circle.members_of(graph, c.__primaryvalue__)))
         return SUCCESS_JSON
     # KeyErrors will be thrown if any required JSON fields are not present.
     except KeyError as e:
@@ -257,18 +279,6 @@ def post_circle():
 
 @app.route('/circles/api/v1.0/events', methods=['POST'])
 def post_event():
-    """
-    Required json keys:
-    - display_name: String
-    - location: String
-    - start_datetime: <datetime>
-    - end_datetime: <datetime>
-    - Circle: <int>
-    Optional keys:
-    - description: String
-    """
-    # TODO: Using auth, check if Person posting event is owner of Circle.
-
     req_json = request.get_json()
     # Fetch the person making the request
     req_user = auth_get_req_user(request)
@@ -283,7 +293,8 @@ def post_event():
     if owner_req or member_valid_ping:
         try:
             e = Event.from_json(req_json, graph, push_updates=True)
-            notif_manager.send_event_notif(graph, circle, e, req_user.__primaryvalue__)
+            notif_manager.send_event_notif(
+                graph, circle, e, req_user.__primaryvalue__)
             return SUCCESS_JSON
         except KeyError as e:
             bad_request('Request JSON must include key %s' % e)
@@ -293,7 +304,7 @@ def post_event():
 
 
 """
-Other.
+Other routes and helper functions.
 """
 @app.route('/')
 def hello():
@@ -302,7 +313,6 @@ def hello():
 
 @app.route('/circles/api/v1.0/getid', methods=['GET'])
 def getid():
-    # Fetch the person making the request
     req_user = auth_get_req_user(request)
     messaging_token = request.headers.get('Messaging')
     req_user.set_messaging_token(graph, messaging_token)
@@ -317,6 +327,20 @@ def error(e):
 
 def bad_request(msg):
     abort(400, description=msg)
+
+
+def auth_get_req_user(request):
+    """Gets the Person node associated with entity making the request."""
+    # Fetch the person making the request
+    req_token = request.headers.get('Authorization')
+    try:
+        decoded_token = fb_auth.verify_id_token(req_token)
+        req_email = decoded_token['email']
+        req_user = (Person.match(graph).where(
+            "_.email = '{}'".format(req_email))).first()
+        return req_user
+    except a_util.InvalidIdTokenError:
+        bad_request('Invalid authorization attempt.')
 
 
 if __name__ == '__main__':
