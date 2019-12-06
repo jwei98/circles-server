@@ -23,7 +23,7 @@ There are three nodes or "Objects":
 2. Circles
 3. Events
 
-Relationships exist as follows (note that edges can be queried bidirectionally in Neo4j):
+Relationships exist as follows (note that edges can be queried bidirectionally in Neo4j):  
 (Person) <- <:KNOWS> ->  (Person)  
 (Person) - <:IS_MEMBER> ->  (Circle)  
 (Person) - <:INVITED_TO> ->  (Event)  
