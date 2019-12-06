@@ -86,7 +86,7 @@ def person(person_id, resource=None):
             try:
                 to_person = Person.from_json(
                     req_json, graph, push_updates=False)
-                # First get new IDs in the circle.
+                # First get IDs of newly added people.
                 new_members = set(p.__primaryvalue__ for p in to_person.Knows)
                 old_members = set(p.__primaryvalue__ for p in person.Knows)
                 newly_added_ids = new_members - old_members
