@@ -1,4 +1,4 @@
-# This repo contains server-side code for the Circles mobile app.
+# Server-side code for Circles mobile app.
 
 ## General info/features
 - Flask app that runs on Google App Engine // GCP.
@@ -16,3 +16,15 @@ We have both a Development and Production build pipeline. Prod reflects code on 
 4. One reviewer must approve the PR
 5. PR may be merged to master
 6. Cloud Build (under circles GCP project) is triggered; app deployed to prod
+
+## (Graph) Data Model
+There are three nodes or "Objects":
+1. Person
+2. Circles
+3. Events
+
+Relationships exist as follows (note that edges can be queried bidirectionally in Neo4j):
+(Person) <- <:KNOWS> ->  (Person)
+(Person) - <:IS_MEMBER> ->  (Circle)
+(Person) - <:INVITED_TO> ->  (Event)
+(Circle) - <:SCHEDULED> ->  (Event)
