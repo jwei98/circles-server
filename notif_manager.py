@@ -1,3 +1,6 @@
+"""
+Deifne methods for sending notifications via FCM.
+"""
 import auth
 from pyfcm import FCMNotification
 from py2neo import Graph
@@ -15,22 +18,19 @@ def send_add_person_notif(graph, adder, people_to_notify):
             send_notification(p.messaging_token, FRIEND_NOTIF_TITLE,
                               '{} has added you as a friend!'
                               .format(adder.display_name))
-        # TODO: figure out what exceptions come up
         except Exception as x:
             print('Unable to send notification: ' + str(x))
 
 
 def send_event_notif(graph, c, e, creator_id):
     for p in list(Circle.members_of(graph, c.__primaryvalue__)):
-        # if p.__primaryvalue__ is creator_id: #don't send notification to creator
-        #     continue
+        if p.__primaryvalue__ is creator_id:  # don't send notification to creator
+            continue
         try:
             send_notification(p.messaging_token, EVENT_NOTIF_TITLE,
                               'You\'ve been invited to {} for your Circle called {}. '
                               'Open the app for more details!'
                               .format(e.display_name, c.display_name))
-
-        # TODO: figure out what exceptions come up
         except Exception as x:
             print('Unable to send notification: ' + str(x))
 
@@ -44,8 +44,6 @@ def send_new_circle_notif(graph, c, creator_id, people_to_notify):
                               'You\'ve been added to a new Circle called {}. '
                               'Open the app for more details!'
                               .format(c.display_name))
-
-        # TODO: figure out what exceptions come up
         except Exception as x:
             print('Unable to send notification: ' + str(x))
 

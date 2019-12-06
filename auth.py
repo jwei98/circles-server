@@ -1,5 +1,5 @@
 """
-All authentication convenience functions.
+All authentication convenience functions for connectig to Neo4j and FCM.
 """
 from google.cloud import datastore
 
