@@ -259,15 +259,9 @@ def post_circle():
     try:
         c = Circle.from_json(req_json, graph, push_updates=True)
 
-
-<< << << < Updated upstream
-        notif_manager.send_new_circle_notif(
-            graph, c, req_user.__primaryvalue__)
-== == == =
         notif_manager.send_new_circle_notif(
             graph, c, req_user.__primaryvalue__,
             list(Circle.members_of(graph, c.__primaryvalue__)))
->>>>>> > Stashed changes
         return SUCCESS_JSON
     # KeyErrors will be thrown if any required JSON fields are not present.
     except KeyError as e:
@@ -304,7 +298,8 @@ def post_event():
     if owner_req or member_valid_ping:
         try:
             e = Event.from_json(req_json, graph, push_updates=True)
-            notif_manager.send_event_notif(graph, circle, e, req_user.__primaryvalue__)
+            notif_manager.send_event_notif(
+                graph, circle, e, req_user.__primaryvalue__)
             return SUCCESS_JSON
         except KeyError as e:
             bad_request('Request JSON must include key %s' % e)
