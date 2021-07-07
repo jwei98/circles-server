@@ -35,7 +35,7 @@ graph = Graph(host=host, username=username,
 
 
 """
-GET, PUT, and DELETE routes.
+GET, PUT, and DELETE routes
 """
 @app.route('/circles/api/v1.0/users/<int:person_id>', methods=['GET', 'PUT',
                                                                'DELETE'])
